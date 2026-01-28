@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Footprint - Audit Dashboard</title>
+  <style>
+    /* Lucide Icons */
+    .icon {
+      width: 1em;
+      height: 1em;
+      vertical-align: -0.125em;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      display: inline-block;
+    }
+    .icon-lg { width: 1.25em; height: 1.25em; }
+    .icon-xl { width: 1.5em; height: 1.5em; }
+    
+    /* Minimal styling */
+    body { 
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      padding: 1rem; 
+      background: #f8fafc;
+      margin: 0;
+    }
+    h1 {
+      color: #1e293b;
+      margin-bottom: 1rem;
+    }
+    /* Search Bar Styles */
+    .search-bar {
+      margin-bottom: 1.5rem;
+    }
+    .search-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      max-width: 500px;
+    }
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      font-size: 1rem;
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%;
+      padding: 0.75rem 2.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      background: white;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .search-clear {
+      position: absolute;
+      right: 12px;
+      background: none;
+      border: none;
+      font-size: 1.25rem;
+      color: #6b7280;
+      cursor: pointer;
+      padding: 0;
+    }
+    .search-clear:hover {
+      color: #374151;
+    }
+    .search-results-info {
+      margin-top: 0.5rem;
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+    .highlight {
+      background: #fef08a;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+    .stats { 
+      display: grid; 
+      grid-template-columns: repeat(4, 1fr); 
+      gap: 1rem; 
+      margin-bottom: 2rem;
+    }
+    .stat-card { 
+      background: #ffffff; 
+      padding: 1rem; 
+      border-radius: 8px; 
+      text-align: center; 
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    }
+    .stat-value { 
+      font-size: 2rem; 
+      font-weight: bold; 
+      color: #2563eb; 
+    }
+    .stat-label {
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-top: 0.5rem;
+    }
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      background: #ffffff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    }
+    th, td { 
+      padding: 0.75rem; 
+      text-align: left; 
+      border-bottom: 1px solid #e5e7eb; 
+    }
+    th { 
+      background: #f9fafb; 
+      font-weight: 600;
+      color: #374151;
+    }
+    tbody tr:hover {
+      background: #f8fafc;
+    }
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #6b7280;
+    }
+    .timeline-section {
+      background: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      margin-bottom: 2rem;
+      overflow: hidden;
+    }
+    .timeline-header {
+      padding: 1rem;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .timeline-title {
+      margin: 0;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #374151;
+    }
+    .timeline-controls {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .timeline-btn {
+      padding: 0.25rem 0.75rem;
+      border: 1px solid #d1d5db;
+      background: white;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      color: #374151;
+    }
+    .timeline-btn.active {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: white;
+    }
+    .timeline-btn:hover:not(.active) {
+      background: #f3f4f6;
+    }
+    .timeline-container {
+      padding: 1rem;
+      height: 200px;
+      overflow-x: auto;
+    }
+    .timeline {
+      position: relative;
+      height: 100%;
+      min-width: 800px;
+    }
+    .timeline-axis {
+      position: absolute;
+      bottom: 30px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: #e5e7eb;
+    }
+    .timeline-point {
+      position: absolute;
+      bottom: 20px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #2563eb;
+      border: 2px solid white;
+      box-shadow: 0 0 0 1px #e5e7eb;
+      cursor: pointer;
+      transform: translateX(-50%);
+    }
+    .timeline-point:hover {
+      transform: translateX(-50%) scale(1.2);
+      z-index: 10;
+    }
+    .timeline-point.multiple {
+      background: #dc2626;
+    }
+    .timeline-label {
+      position: absolute;
+      bottom: 0;
+      font-size: 0.75rem;
+      color: #6b7280;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+    .timeline-tooltip {
+      position: absolute;
+      bottom: 50px;
+      background: #1f2937;
+      color: white;
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      transform: translateX(-50%);
+      display: none;
+      z-index: 20;
+    }
+    .timeline-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -4px;
+      border: 4px solid transparent;
+      border-top-color: #1f2937;
+    }
+    
+    /* Recent Activity Styles */
+    .recent-activity {
+      background: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      margin-bottom: 2rem;
+      overflow: hidden;
+    }
+    
+    .activity-header {
+      padding: 1rem;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .activity-title {
+      margin: 0;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #374151;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .activity-badge {
+      background: #3b82f6;
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      animation: none;
+    }
+    
+    .activity-badge.pulse {
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .last-updated {
+      font-size: 0.75rem;
+      color: #6b7280;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+    }
+    
+    .status-dot.offline {
+      background: #ef4444;
+    }
+    
+    .activity-list {
+      padding: 0;
+      margin: 0;
+      list-style: none;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    .activity-item {
+      padding: 1rem;
+      border-bottom: 1px solid #f3f4f6;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background-color 0.2s ease;
+    }
+    
+    .activity-item:last-child {
+      border-bottom: none;
+    }
+    
+    .activity-item:hover {
+      background: #f8fafc;
+    }
+    
+    .activity-item.new-item {
+      animation: slideIn 0.5s ease-out;
+      background: #eff6ff;
+    }
+    
+    @keyframes slideIn {
+      0% {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .activity-content {
+      flex: 1;
+    }
+    
+    .activity-title-text {
+      font-weight: 500;
+      color: #374151;
+      margin: 0 0 0.25rem 0;
+    }
+    
+    .activity-meta {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+    
+    .activity-time {
+      font-size: 0.75rem;
+      color: #6b7280;
+      white-space: nowrap;
+    }
+    
+    .empty-activity {
+      padding: 2rem;
+      text-align: center;
+      color: #6b7280;
+      font-size: 0.875rem;
+    }
+    
+    /* Tag Management Styles */
+    .tag-controls {
+      background: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      margin-bottom: 1rem;
+      padding: 1rem;
+    }
+    .tag-controls-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .tag-controls-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #374151;
+      margin: 0;
+    }
+    .manage-tags-btn {
+      padding: 0.5rem 1rem;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    .manage-tags-btn:hover {
+      background: #1d4ed8;
+    }
+    .tag-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .tag-filter-label {
+      font-size: 0.875rem;
+      color: #6b7280;
+      font-weight: 500;
+      margin-right: 0.5rem;
+    }
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.75rem;
+      background: #f3f4f6;
+      border: 1px solid #d1d5db;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #374151;
+    }
+    .tag-chip:hover {
+      background: #e5e7eb;
+      transform: translateY(-1px);
+    }
+    .tag-chip.active {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: white;
+    }
+    .tag-chip.clickable:hover {
+      background: #2563eb;
+      color: white;
+    }
+    .tag-chip .tag-close {
+      margin-left: 0.5rem;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .tag-chip.active .tag-close:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      padding: 0 0.25rem;
+    }
+    .clear-filters-btn {
+      padding: 0.25rem 0.5rem;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      margin-left: 0.5rem;
+    }
+    .clear-filters-btn:hover {
+      background: #dc2626;
+    }
+    .filter-mode {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin-left: 1rem;
+    }
+    .filter-mode-btn {
+      padding: 0.25rem 0.5rem;
+      border: 1px solid #d1d5db;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      color: #374151;
+    }
+    .filter-mode-btn.active {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: white;
+    }
+    
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+    }
+    .modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #1f2937;
+      margin: 0;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #6b7280;
+      padding: 0;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 4px;
+    }
+    .modal-close:hover {
+      background: #f3f4f6;
+      color: #374151;
+    }
+    .modal-body {
+      padding: 1.5rem;
+    }
+    .tag-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .tag-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+    }
+    .tag-item-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .tag-item-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .tag-count {
+      background: #e5e7eb;
+      color: #374151;
+      padding: 0.25rem 0.5rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .btn-sm {
+      padding: 0.25rem 0.5rem;
+      border: 1px solid #d1d5db;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      color: #374151;
+    }
+    .btn-sm:hover {
+      background: #f3f4f6;
+    }
+    .btn-sm.danger {
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+    .btn-sm.danger:hover {
+      background: #fef2f2;
+    }
+    .editable-tag {
+      background: white;
+      border: 1px solid #d1d5db;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      min-width: 120px;
+    }
+    .editable-tag:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px #2563eb;
+    }
+    .no-tags {
+      text-align: center;
+      color: #6b7280;
+      padding: 2rem;
+      font-style: italic;
+    }
+    .batch-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      padding: 1rem;
+      background: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    }
+    .selection-counter {
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+    .batch-btn {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      background: white;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+    .batch-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .batch-btn.export {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: white;
+    }
+    .batch-btn.export:hover:not(:disabled) {
+      background: #1d4ed8;
+    }
+    .batch-btn.delete {
+      background: #dc2626;
+      border-color: #dc2626;
+      color: white;
+    }
+    .batch-btn.delete:hover:not(:disabled) {
+      background: #b91c1c;
+    }
+    .checkbox-cell {
+      width: 40px;
+      text-align: center;
+    }
+    .evidence-checkbox {
+      cursor: pointer;
+    }
+    .select-all-checkbox {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1><svg class="icon icon-xl" viewBox="0 0 24 24"><path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/></svg> Footprint</h1>
+  
+  <!-- Search Bar -->
+  <div class="search-bar">
+    <div class="search-input-wrapper">
+      <span class="search-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+      <input type="text" id="search-input" class="search-input" placeholder="Search conversations, tags, providers...">
+      <button class="search-clear" id="search-clear" style="display: none;">&times;</button>
+    </div>
+    <div class="search-results-info" id="search-results-info"></div>
+  </div>
+  
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-value" id="total-count">-</div>
+      <div class="stat-label">Total</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="today-count">-</div>
+      <div class="stat-label">Today</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="total-size">-</div>
+      <div class="stat-label">Size</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="tag-count">-</div>
+      <div class="stat-label">Tags</div>
+    </div>
+  </div>
+  
+  <!-- Recent Activity Section -->
+  <div class="recent-activity">
+    <div class="activity-header">
+      <h3 class="activity-title">
+        <svg class="icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Recent Activity
+        <span class="activity-badge" id="activity-badge">0</span>
+      </h3>
+      <div class="last-updated">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="last-updated-text">Never updated</span>
+      </div>
+    </div>
+    <ul class="activity-list" id="activity-list">
+      <li class="empty-activity">
+        Loading recent activity...
+      </li>
+    </ul>
+  </div>
+  
+  <!-- Timeline Section -->
+  <div class="timeline-section">
+    <div class="timeline-header">
+      <h3 class="timeline-title">Audit Timeline</h3>
+      <div class="timeline-controls">
+        <button class="timeline-btn active" data-period="7d">7 Days</button>
+        <button class="timeline-btn" data-period="30d">30 Days</button>
+        <button class="timeline-btn" data-period="90d">90 Days</button>
+        <button class="timeline-btn" data-period="all">All Time</button>
+      </div>
+    </div>
+    <div class="timeline-container">
+      <div class="timeline" id="timeline">
+        <div class="timeline-axis"></div>
+        <div id="timeline-loading" class="loading" style="height: auto; padding: 3rem;">
+          Loading timeline...
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Batch Operations Controls -->
+  <div class="batch-controls">
+    <div class="selection-counter" id="selection-counter">0 selected</div>
+    <button class="batch-btn export" id="export-selected-btn" disabled>
+      <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg> Export Selected
+    </button>
+    <button class="batch-btn delete" id="delete-selected-btn" disabled>
+      <svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg> Delete Selected
+    </button>
+  </div>
+  
+  <!-- Tag Controls -->
+  <div class="tag-controls">
+    <div class="tag-controls-header">
+      <h3 class="tag-controls-title"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg> Filter by Tags</h3>
+      <button class="manage-tags-btn" id="manage-tags-btn">Manage Tags</button>
+    </div>
+    <div class="tag-filters">
+      <span class="tag-filter-label">Filter:</span>
+      <div id="tag-filter-chips"></div>
+      <button class="clear-filters-btn" id="clear-filters-btn" style="display: none;">Clear All</button>
+      <div class="filter-mode">
+        <span style="font-size: 0.75rem; color: #6b7280;">Mode:</span>
+        <button class="filter-mode-btn active" data-mode="AND" id="filter-mode-and">AND</button>
+        <button class="filter-mode-btn" data-mode="OR" id="filter-mode-or">OR</button>
+      </div>
+    </div>
+  </div>
+  
+  <table id="evidence-table">
+    <thead>
+      <tr>
+        <th class="checkbox-cell">
+          <input type="checkbox" id="select-all-checkbox" class="select-all-checkbox" title="Select All">
+        </th>
+        <th>ID</th>
+        <th>Conversation</th>
+        <th>Date</th>
+        <th>Tags</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td colspan="5" class="loading">Loading audit records...</td>
+      </tr>
+    </tbody>
+  </table>
+  
+  <!-- Tag Management Modal -->
+  <div id="tag-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/></svg> Manage Tags</h2>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="tag-list" class="tag-list">
+          <div class="no-tags">Loading tags...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module" src="./src/dashboard.ts"></script>
+</body>
+</html>

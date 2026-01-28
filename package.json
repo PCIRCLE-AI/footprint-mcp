@@ -1,0 +1,78 @@
+{
+  "name": "@pcircle/footprint",
+  "version": "1.2.0",
+  "description": "MCP server for Footprint - automatic audit trails and encrypted evidence for AI conversations",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "llm",
+    "audit",
+    "evidence",
+    "encryption",
+    "footprint",
+    "claude",
+    "chatgpt",
+    "compliance",
+    "timestamp"
+  ],
+  "author": "PCIRCLE, LLC",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "bin": {
+    "footprint": "./dist/src/index.js"
+  },
+  "files": [
+    "dist",
+    "SKILL.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PCIRCLE-AI/footprint-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PCIRCLE-AI/footprint-mcp/issues"
+  },
+  "homepage": "https://footprint.memesh.ai",
+  "scripts": {
+    "build": "pnpm build:ui && tsc",
+    "build:ui": "mkdir -p dist/ui && pnpm build:ui:dashboard && pnpm build:ui:detail && pnpm build:ui:export",
+    "build:ui:dashboard": "cross-env INPUT=ui/dashboard.html vite build --outDir dist/ui-tmp && cp dist/ui-tmp/ui/dashboard.html dist/ui/dashboard.html",
+    "build:ui:detail": "cross-env INPUT=ui/detail.html vite build --outDir dist/ui-tmp && cp dist/ui-tmp/ui/detail.html dist/ui/detail.html",
+    "build:ui:export": "cross-env INPUT=ui/export.html vite build --outDir dist/ui-tmp && cp dist/ui-tmp/ui/export.html dist/ui/export.html",
+    "dev": "concurrently 'pnpm build:ui --watch' 'tsc --watch'",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm clean && pnpm build && pnpm test:run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.0.1",
+    "@modelcontextprotocol/sdk": "^1.25.3",
+    "@noble/ciphers": "^0.5.2",
+    "@noble/hashes": "^1.3.3",
+    "better-sqlite3": "^12.6.2",
+    "isomorphic-git": "^1.36.2",
+    "jszip": "^3.10.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.9",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.5",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-singlefile": "^2.3.0",
+    "vitest": "^1.6.1"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

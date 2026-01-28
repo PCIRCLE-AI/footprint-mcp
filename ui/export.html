@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Export Audit - Footprint</title>
+  <style>
+    /* Lucide Icons */
+    .icon {
+      width: 1em;
+      height: 1em;
+      vertical-align: -0.125em;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      display: inline-block;
+    }
+    .icon-lg { width: 1.25em; height: 1.25em; }
+    .icon-xl { width: 1.5em; height: 1.5em; }
+    
+    body { 
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      padding: 1rem; 
+      background: #f8fafc;
+      margin: 0;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #1e293b;
+      margin-bottom: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .back-btn {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      margin-right: 1rem;
+    }
+    .back-btn:hover {
+      background: #4f46e5;
+    }
+    .export-section {
+      background: #ffffff;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      margin-bottom: 2rem;
+      overflow: hidden;
+    }
+    .section-header {
+      padding: 1rem;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+    }
+    .section-title {
+      margin: 0;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #374151;
+    }
+    .section-body {
+      padding: 1rem;
+    }
+    .options-grid {
+      display: grid;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .option-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .option-label {
+      font-weight: 500;
+      color: #374151;
+    }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .checkbox-group input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+    }
+    .preview-area {
+      background: #f8fafc;
+      border: 2px dashed #cbd5e1;
+      border-radius: 6px;
+      padding: 2rem;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .preview-content {
+      display: none;
+    }
+    .preview-content.active {
+      display: block;
+      text-align: left;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 1rem;
+    }
+    .preview-item {
+      padding: 0.75rem;
+      border-bottom: 1px solid #f3f4f6;
+      font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 0.875rem;
+    }
+    .preview-item:last-child {
+      border-bottom: none;
+    }
+    .preview-meta {
+      color: #6b7280;
+      font-size: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e5e7eb;
+    }
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      border: 1px solid;
+      cursor: pointer;
+      font-size: 0.875rem;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 500;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-primary {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: white;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: #1d4ed8;
+    }
+    .btn-secondary {
+      background: white;
+      border-color: #d1d5db;
+      color: #374151;
+    }
+    .btn-secondary:hover {
+      background: #f9fafb;
+    }
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #6b7280;
+    }
+    .error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+    }
+    .success {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      padding: 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+    }
+    .export-info {
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin-top: 1rem;
+    }
+    .file-info {
+      background: #eff6ff;
+      border: 1px solid #dbeafe;
+      padding: 1rem;
+      border-radius: 6px;
+      margin: 1rem 0;
+    }
+    .file-name {
+      font-weight: 600;
+      color: #1e40af;
+      font-family: monospace;
+    }
+    .file-stats {
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>
+      <button class="back-btn" onclick="goBack()"><svg class="icon" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> Back</button>
+      <svg class="icon icon-xl" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg> Export Audit
+    </h1>
+    
+    <div id="error-container"></div>
+    
+    <!-- Export Options -->
+    <div class="export-section">
+      <div class="section-header">
+        <h3 class="section-title">Export Options</h3>
+      </div>
+      <div class="section-body">
+        <div class="options-grid">
+          <div class="option-group">
+            <label class="option-label">Evidence Selection</label>
+            <div class="checkbox-group">
+              <input type="radio" id="export-all" name="selection" value="all" checked>
+              <label for="export-all">All evidence</label>
+            </div>
+            <div class="checkbox-group">
+              <input type="radio" id="export-recent" name="selection" value="recent">
+              <label for="export-recent">Recent evidence (last 30 days)</label>
+            </div>
+          </div>
+          
+          <div class="option-group">
+            <label class="option-label">Additional Information</label>
+            <div class="checkbox-group">
+              <input type="checkbox" id="include-git" checked>
+              <label for="include-git">Include Git timestamps and commit hashes</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview Section -->
+    <div class="export-section">
+      <div class="section-header">
+        <h3 class="section-title">Export Preview</h3>
+      </div>
+      <div class="section-body">
+        <div id="preview-area" class="preview-area">
+          <div id="preview-loading" class="loading">
+            Loading preview...
+          </div>
+          <div id="preview-content" class="preview-content">
+            <div id="preview-items"></div>
+          </div>
+          <div id="preview-empty" style="display: none;">
+            <p>No evidence found matching the selection criteria.</p>
+            <p>Try adjusting your selection options above.</p>
+          </div>
+        </div>
+        
+        <div id="file-info" class="file-info" style="display: none;">
+          <div class="file-name" id="file-name">evidence-export.zip</div>
+          <div class="file-stats">
+            <span id="file-count">-</span> evidence files • 
+            Estimated size: <span id="file-size">-</span>
+          </div>
+        </div>
+        
+        <div class="actions">
+          <div class="export-info">
+            Export will create an encrypted ZIP archive with JSON metadata
+          </div>
+          <div>
+            <button class="btn btn-secondary" onclick="refreshPreview()">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg> Refresh Preview
+            </button>
+            <button class="btn btn-primary" id="download-btn" onclick="downloadExport()" disabled>
+              <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg> Download Export
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module" src="./src/export.ts"></script>
+</body>
+</html>
