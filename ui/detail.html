@@ -191,11 +191,11 @@
       <div class="metadata-grid">
         <div class="metadata-card">
           <div class="metadata-label">Record ID</div>
-          <div class="metadata-value" id="evidence-id">-</div>
+          <div class="metadata-value" id="footprint-id">-</div>
         </div>
         <div class="metadata-card">
           <div class="metadata-label">Timestamp</div>
-          <div class="metadata-value" id="evidence-timestamp">-</div>
+          <div class="metadata-value" id="footprint-timestamp">-</div>
         </div>
         <div class="metadata-card">
           <div class="metadata-label">Conversation ID</div>
@@ -211,7 +211,7 @@
         </div>
         <div class="metadata-card">
           <div class="metadata-label">Tags</div>
-          <div class="metadata-value" id="evidence-tags">-</div>
+          <div class="metadata-value" id="footprint-tags">-</div>
         </div>
       </div>
       
@@ -224,16 +224,16 @@
           <h3 style="margin: 0;">Decrypted Content</h3>
         </div>
         <div class="content-body">
-          <div class="content-text" id="evidence-content"></div>
+          <div class="content-text" id="footprint-content"></div>
         </div>
       </div>
       
       <!-- Actions -->
       <div class="actions">
-        <button class="btn btn-primary" onclick="exportEvidence()">
-          <svg class="icon" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg> Export This Evidence
+        <button class="btn btn-primary" onclick="exportFootprint()">
+          <svg class="icon" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg> Export This Footprint
         </button>
-        <button class="btn btn-secondary" onclick="verifyEvidence()">
+        <button class="btn btn-secondary" onclick="verifyFootprint()">
           <svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg> Verify Integrity
         </button>
         <button class="btn btn-secondary" onclick="copyToClipboard()">

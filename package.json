@@ -1,13 +1,13 @@
 {
   "name": "@pcircle/footprint",
   "version": "1.2.1",
-  "description": "MCP server for Footprint - automatic audit trails and encrypted evidence for AI conversations",
+  "description": "MCP server for Footprint - automatic audit trails and encrypted footprints for AI conversations",
   "keywords": [
     "mcp",
     "model-context-protocol",
     "llm",
     "audit",
-    "evidence",
+    "audit-trail",
     "encryption",
     "footprint",
     "claude",

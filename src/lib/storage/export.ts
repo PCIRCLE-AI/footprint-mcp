@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import type { EvidenceDatabase } from './database.js';
 
 export interface ExportOptions {
-  evidenceIds?: string[]; // Specific IDs to export (or all)
+  ids?: string[]; // Specific IDs to export (or all)
   includeGitInfo?: boolean; // Include git-info.json
   password?: string; // Optional password protection (not implemented yet)
 }
@@ -12,13 +12,13 @@ export interface ExportResult {
   filename: string; // Generated filename
   zipData: Uint8Array; // ZIP file data
   checksum: string; // SHA-256 of zip file
-  evidenceCount: number; // Number of evidences exported
+  footprintCount: number; // Number of footprints exported
 }
 
 interface ManifestData {
   version: string;
   exportDate: string;
-  evidenceCount: number;
+  footprintCount: number;
   includeGitInfo: boolean;
 }
 
@@ -45,30 +45,30 @@ export async function exportEvidences(
   options: ExportOptions = {}
 ): Promise<ExportResult> {
   try {
-    const { evidenceIds, includeGitInfo = false } = options;
+    const { ids, includeGitInfo = false } = options;
 
-    // Get evidences to export - validate IDs if specified
-    let evidences;
-    if (evidenceIds) {
+    // Get footprints to export - validate IDs if specified
+    let footprints;
+    if (ids) {
       // Validate all IDs exist first
-      const notFound = evidenceIds.filter(id => !db.findById(id));
+      const notFound = ids.filter(id => !db.findById(id));
       if (notFound.length > 0) {
-        throw new Error(`Evidence IDs not found: ${notFound.join(', ')}`);
+        throw new Error(`Footprint IDs not found: ${notFound.join(', ')}`);
       }
       // Map with proper error handling (should never throw after validation above)
-      evidences = evidenceIds.map(id => {
-        const evidence = db.findById(id);
-        if (!evidence) {
-          throw new Error(`Evidence ${id} not found`);
+      footprints = ids.map(id => {
+        const footprint = db.findById(id);
+        if (!footprint) {
+          throw new Error(`Footprint ${id} not found`);
         }
-        return evidence;
+        return footprint;
       });
     } else {
-      evidences = db.list();
+      footprints = db.list();
     }
 
     // Validate export size to prevent OOM crashes
-    const estimatedSizeMB = evidences.reduce(
+    const estimatedSizeMB = footprints.reduce(
       (sum, e) => sum + e.encryptedContent.length,
       0
     ) / (1024 * 1024);
@@ -76,7 +76,7 @@ export async function exportEvidences(
     if (estimatedSizeMB > MAX_EXPORT_SIZE_MB) {
       throw new Error(
         `Export size (${estimatedSizeMB.toFixed(1)}MB) exceeds limit (${MAX_EXPORT_SIZE_MB}MB). ` +
-        `Please export in smaller batches using the evidenceIds parameter.`
+        `Please export in smaller batches using the ids parameter.`
       );
     }
 
@@ -87,58 +87,58 @@ export async function exportEvidences(
     const manifest: ManifestData = {
       version: EXPORT_FORMAT_VERSION,
       exportDate: new Date().toISOString(),
-      evidenceCount: evidences.length,
+      footprintCount: footprints.length,
       includeGitInfo,
     };
     zip.file('manifest.json', JSON.stringify(manifest, null, 2));
 
-    // Add each evidence
+    // Add each footprint
     const checksumEntries: string[] = [];
 
-    for (const evidence of evidences) {
-      const evidenceFolder = `evidences/${evidence.id}`;
+    for (const fp of footprints) {
+      const fpFolder = `footprints/${fp.id}`;
 
       // Add encrypted-data
-      zip.file(`${evidenceFolder}/encrypted-data`, evidence.encryptedContent);
+      zip.file(`${fpFolder}/encrypted-data`, fp.encryptedContent);
 
       // Calculate checksum for encrypted data
       const dataChecksum = createHash('sha256')
-        .update(evidence.encryptedContent)
+        .update(fp.encryptedContent)
         .digest('hex');
-      checksumEntries.push(`${dataChecksum}  ${evidenceFolder}/encrypted-data`);
+      checksumEntries.push(`${dataChecksum}  ${fpFolder}/encrypted-data`);
 
       // Add metadata.json
       const metadata = {
-        id: evidence.id,
-        timestamp: evidence.timestamp,
-        conversationId: evidence.conversationId,
-        llmProvider: evidence.llmProvider,
-        contentHash: evidence.contentHash,
-        messageCount: evidence.messageCount,
-        tags: evidence.tags,
-        nonce: Array.from(evidence.nonce), // Convert Uint8Array to array for JSON
+        id: fp.id,
+        timestamp: fp.timestamp,
+        conversationId: fp.conversationId,
+        llmProvider: fp.llmProvider,
+        contentHash: fp.contentHash,
+        messageCount: fp.messageCount,
+        tags: fp.tags,
+        nonce: Array.from(fp.nonce), // Convert Uint8Array to array for JSON
       };
       const metadataJson = JSON.stringify(metadata, null, 2);
-      zip.file(`${evidenceFolder}/metadata.json`, metadataJson);
+      zip.file(`${fpFolder}/metadata.json`, metadataJson);
 
       const metadataChecksum = createHash('sha256')
         .update(metadataJson)
         .digest('hex');
       checksumEntries.push(
-        `${metadataChecksum}  ${evidenceFolder}/metadata.json`
+        `${metadataChecksum}  ${fpFolder}/metadata.json`
       );
 
       // Add git-info.json if requested and available
-      if (includeGitInfo && evidence.gitCommitHash && evidence.gitTimestamp) {
+      if (includeGitInfo && fp.gitCommitHash && fp.gitTimestamp) {
         const gitInfo = {
-          gitCommitHash: evidence.gitCommitHash,
-          gitTimestamp: evidence.gitTimestamp,
+          gitCommitHash: fp.gitCommitHash,
+          gitTimestamp: fp.gitTimestamp,
         };
         const gitInfoJson = JSON.stringify(gitInfo, null, 2);
-        zip.file(`${evidenceFolder}/git-info.json`, gitInfoJson);
+        zip.file(`${fpFolder}/git-info.json`, gitInfoJson);
 
         const gitChecksum = createHash('sha256').update(gitInfoJson).digest('hex');
-        checksumEntries.push(`${gitChecksum}  ${evidenceFolder}/git-info.json`);
+        checksumEntries.push(`${gitChecksum}  ${fpFolder}/git-info.json`);
       }
     }
 
@@ -163,17 +163,17 @@ export async function exportEvidences(
 
     // Generate filename
     const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const filename = `evidence-export-${timestamp}.zip`;
+    const filename = `footprint-export-${timestamp}.zip`;
 
     return {
       filename,
       zipData,
       checksum: zipChecksum,
-      evidenceCount: evidences.length,
+      footprintCount: footprints.length,
     };
   } catch (error) {
     throw new Error(
-      `Failed to export evidences: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `Failed to export footprints: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
 }

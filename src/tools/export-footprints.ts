@@ -5,7 +5,7 @@ import type { EvidenceDatabase } from "../lib/storage/index.js";
 
 export const exportFootprintsSchema = {
   inputSchema: {
-    evidenceIds: z
+    ids: z
       .array(z.string())
       .optional()
       .describe("Specific IDs (empty = all)"),
@@ -14,7 +14,7 @@ export const exportFootprintsSchema = {
   outputSchema: {
     filename: z.string(),
     checksum: z.string(),
-    evidenceCount: z.number(),
+    footprintCount: z.number(),
     success: z.boolean(),
   },
 };
@@ -32,13 +32,13 @@ export const exportFootprintsMetadata = {
 export function createExportFootprintsHandler(db: EvidenceDatabase) {
   return wrapToolHandler(
     "export-footprints",
-    "Check evidenceIds exist and filesystem has write permissions.",
-    async (params: { evidenceIds?: string[]; includeGitInfo?: boolean }) => {
+    "Check ids exist and filesystem has write permissions.",
+    async (params: { ids?: string[]; includeGitInfo?: boolean }) => {
       const { exportEvidences } = await import("../lib/storage/index.js");
       const fs = await import("fs");
 
       const result = await exportEvidences(db, {
-        evidenceIds: params.evidenceIds,
+        ids: params.ids,
         includeGitInfo: params.includeGitInfo ?? false,
       });
 
@@ -47,7 +47,7 @@ export function createExportFootprintsHandler(db: EvidenceDatabase) {
       return formatSuccessResponse(
         "Export completed successfully",
         {
-          "Footprint Count": result.evidenceCount,
+          "Footprint Count": result.footprintCount,
           Filename: result.filename,
           Checksum: result.checksum,
           "Git Info": params.includeGitInfo ? "Included" : "Excluded",
@@ -55,7 +55,7 @@ export function createExportFootprintsHandler(db: EvidenceDatabase) {
         {
           filename: result.filename,
           checksum: result.checksum,
-          evidenceCount: result.evidenceCount,
+          footprintCount: result.footprintCount,
           success: true,
         },
       );

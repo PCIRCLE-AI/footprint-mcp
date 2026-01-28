@@ -21,7 +21,7 @@ export const suggestCaptureSchema = {
 export const suggestCaptureMetadata = {
   title: "Suggest Capture",
   description:
-    "Analyze conversation content and suggest whether to capture it as evidence",
+    "Analyze conversation content and suggest whether to capture it as a footprint",
 };
 
 export function createSuggestCaptureHandler() {

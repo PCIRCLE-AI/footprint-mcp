@@ -270,24 +270,24 @@ export class FootprintServer {
 
   private registerResources(): void {
     this.server.registerResource(
-      "evidence",
-      new ResourceTemplate("evidence://{id}", { list: undefined }),
+      "footprint",
+      new ResourceTemplate("footprint://{id}", { list: undefined }),
       {
-        title: "Evidence Content",
+        title: "Footprint Content",
         description: "Access encrypted footprint record by ID",
         mimeType: "text/plain",
       },
       async (uri, { id }) => {
         try {
-          const evidence = this.db.findById(id as string);
-          if (!evidence) {
-            throw new Error(`Evidence with ID ${id} not found`);
+          const footprint = this.db.findById(id as string);
+          if (!footprint) {
+            throw new Error(`Footprint with ID ${id} not found`);
           }
 
           const key = await this.getDerivedKey();
           const decrypted = decrypt(
-            evidence.encryptedContent,
-            evidence.nonce,
+            footprint.encryptedContent,
+            footprint.nonce,
             key,
           );
 
@@ -298,7 +298,7 @@ export class FootprintServer {
           };
         } catch (error) {
           throw new Error(
-            `Failed to access evidence resource: ${getErrorMessage(error)}`,
+            `Failed to access footprint resource: ${getErrorMessage(error)}`,
           );
         }
       },
@@ -322,7 +322,7 @@ export class FootprintServer {
 
 async function main(): Promise<void> {
   const config: ServerConfig = {
-    dbPath: process.env.FOOTPRINT_DB_PATH || "./evidence.db",
+    dbPath: process.env.FOOTPRINT_DB_PATH || "./footprints.db",
     password: process.env.FOOTPRINT_PASSWORD || "",
   };
 

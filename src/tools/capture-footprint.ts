@@ -103,7 +103,7 @@ export function createCaptureFootprintHandler(
       });
 
       return formatSuccessResponse(
-        "Evidence captured successfully",
+        "Footprint captured successfully",
         {
           ID: id,
           Timestamp: timestamp,

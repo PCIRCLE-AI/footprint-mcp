@@ -15,13 +15,13 @@ src/
 ├── tools/                      # MCP Tool Handlers (11 tools)
 │   ├── index.ts                # Re-exports all tools
 │   ├── capture-footprint.ts    # Capture & encrypt conversations
-│   ├── list-footprints.ts      # List evidence with pagination
-│   ├── get-footprint.ts        # Retrieve & decrypt evidence
+│   ├── list-footprints.ts      # List footprints with pagination
+│   ├── get-footprint.ts        # Retrieve & decrypt footprint
 │   ├── export-footprints.ts    # Export to encrypted ZIP
 │   ├── search-footprints.ts    # Search by query/tags/date
 │   ├── verify-footprint.ts     # Integrity verification
 │   ├── suggest-capture.ts      # AI-powered suggestions
-│   ├── delete-footprints.ts    # Delete evidence records
+│   ├── delete-footprints.ts    # Delete footprint records
 │   ├── rename-tag.ts           # Rename tags globally
 │   ├── remove-tag.ts           # Remove tags globally
 │   └── get-tag-stats.ts        # Tag usage statistics
@@ -75,7 +75,7 @@ src/
 
 - `FootprintServer` - Main server class extending MCP SDK
 - Tool registration with dependency injection
-- Resource handler for `evidence://{id}` URIs
+- Resource handler for `footprint://{id}` URIs
 
 ### 2. Tool Handler Layer (tools/)
 

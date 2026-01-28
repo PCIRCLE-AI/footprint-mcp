@@ -3,11 +3,11 @@
 [![npm version](https://img.shields.io/npm/v/@pcircle/footprint)](https://www.npmjs.com/package/@pcircle/footprint)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Model Context Protocol (MCP) server that automatically captures and encrypts LLM conversations as legal evidence.
+Model Context Protocol (MCP) server that automatically captures and encrypts LLM conversations as timestamped footprints.
 
 ## Why Footprint?
 
-- **Prove IP Ownership** - Timestamped evidence of LLM-assisted work
+- **Prove IP Ownership** - Timestamped footprints of LLM-assisted work
 - **Zero Effort** - Automatic capture via MCP protocol
 - **Privacy First** - End-to-end encrypted, locally stored
 - **Legally Valid** - Git timestamps + SHA-256 checksums
@@ -23,7 +23,7 @@ npm install -g @pcircle/footprint
 1. **Set environment variables:**
 
 ```bash
-export FOOTPRINT_DB_PATH="./evidence.db"
+export FOOTPRINT_DB_PATH="./footprints.db"
 export FOOTPRINT_PASSWORD="your-secure-password"
 ```
 
@@ -36,7 +36,7 @@ export FOOTPRINT_PASSWORD="your-secure-password"
       "command": "npx",
       "args": ["footprint"],
       "env": {
-        "FOOTPRINT_DB_PATH": "/path/to/evidence.db",
+        "FOOTPRINT_DB_PATH": "/path/to/footprints.db",
         "FOOTPRINT_PASSWORD": "your-password"
       }
     }
@@ -44,14 +44,14 @@ export FOOTPRINT_PASSWORD="your-secure-password"
 }
 ```
 
-3. **Restart Claude Desktop** - Evidence collection starts automatically
+3. **Restart Claude Desktop** - Footprint collection starts automatically
 
 ## Features
 
 - 🔐 XChaCha20-Poly1305 encryption
 - 🕒 Git commit timestamps
 - 📦 Tamper-proof ZIP exports
-- 🔍 Search and retrieve evidence
+- 🔍 Search and retrieve footprints
 - 🤖 AI-powered capture suggestions
 - ✅ Integrity verification
 - 🏷️ Tag management
@@ -100,7 +100,7 @@ src/
 
 #### capture-footprint
 
-Captures and encrypts an LLM conversation as evidence.
+Captures and encrypts an LLM conversation as a footprint.
 
 **Parameters:**
 
@@ -112,7 +112,7 @@ Captures and encrypts an LLM conversation as evidence.
 
 #### list-footprints
 
-Lists all captured evidence with pagination support.
+Lists all captured footprints with pagination support.
 
 **Parameters:**
 
@@ -121,26 +121,26 @@ Lists all captured evidence with pagination support.
 
 #### get-footprint
 
-Retrieves and decrypts specific evidence by ID.
+Retrieves and decrypts a specific footprint by ID.
 
 **Parameters:**
 
-- `id` - Evidence ID
+- `id` - Footprint ID
 
 #### export-footprints
 
-Exports evidence to tamper-proof encrypted ZIP archive.
+Exports footprints to tamper-proof encrypted ZIP archive.
 
 **Parameters:**
 
-- `evidenceIds` - Array of evidence IDs to export
+- `ids` - Array of footprint IDs to export
 - `includeGitInfo` (optional) - Include git metadata
 
 ### Search & Discovery
 
 #### search-footprints
 
-Search and filter evidence by query, tags, or date range.
+Search and filter footprints by query, tags, or date range.
 
 **Parameters:**
 
@@ -153,7 +153,7 @@ Search and filter evidence by query, tags, or date range.
 
 #### suggest-capture
 
-Analyze conversation content and suggest whether to capture it as evidence.
+Analyze conversation content and suggest whether to capture it as a footprint.
 
 **Parameters:**
 
@@ -171,31 +171,31 @@ Analyze conversation content and suggest whether to capture it as evidence.
 
 #### verify-footprint
 
-Verify the integrity and authenticity of captured evidence.
+Verify the integrity and authenticity of a captured footprint.
 
 **Parameters:**
 
-- `id` - Evidence ID to verify
+- `id` - Footprint ID to verify
 
 **Returns:**
 
 - `verified` - Overall verification status
 - `checks` - Detailed checks (content integrity, git timestamp, encryption)
-- `legalReadiness` - Whether evidence meets legal standards
+- `legalReadiness` - Whether footprint meets legal standards
 
 ### Management
 
 #### delete-footprints
 
-Delete evidence records permanently.
+Delete footprint records permanently.
 
 **Parameters:**
 
-- `evidenceIds` - Array of evidence IDs to delete
+- `ids` - Array of footprint IDs to delete
 
 #### rename-tag
 
-Rename a tag across all evidence.
+Rename a tag across all footprints.
 
 **Parameters:**
 
@@ -204,7 +204,7 @@ Rename a tag across all evidence.
 
 #### remove-tag
 
-Remove a tag from all evidence.
+Remove a tag from all footprints.
 
 **Parameters:**
 

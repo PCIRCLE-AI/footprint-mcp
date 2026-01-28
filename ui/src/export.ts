@@ -5,7 +5,7 @@ const app = new App({
   version: "1.1.1",
 });
 
-interface Evidence {
+interface Footprint {
   id: string;
   timestamp: string;
   conversationId: string;
@@ -17,11 +17,11 @@ interface Evidence {
 interface ExportResult {
   filename: string;
   checksum: string;
-  evidenceCount: number;
+  footprintCount: number;
   success: boolean;
 }
 
-let currentEvidences: Evidence[] = [];
+let currentFootprints: Footprint[] = [];
 let exportResult: ExportResult | null = null;
 
 function showError(message: string) {
@@ -89,102 +89,102 @@ function getIncludeGit(): boolean {
   return gitCheckbox?.checked || false;
 }
 
-function filterEvidences(evidences: Evidence[]): Evidence[] {
+function filterFootprints(footprints: Footprint[]): Footprint[] {
   const mode = getSelectionMode();
-  
+
   if (mode === 'recent') {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    return evidences.filter(e => {
+
+    return footprints.filter(fp => {
       try {
-        const evidenceDate = new Date(e.timestamp);
-        return evidenceDate >= thirtyDaysAgo;
+        const footprintDate = new Date(fp.timestamp);
+        return footprintDate >= thirtyDaysAgo;
       } catch {
         return false;
       }
     });
   }
-  
-  return evidences;
+
+  return footprints;
 }
 
-function renderPreview(evidences: Evidence[]) {
-  const filteredEvidences = filterEvidences(evidences);
-  
+function renderPreview(footprints: Footprint[]) {
+  const filteredFootprints = filterFootprints(footprints);
+
   const previewLoading = document.getElementById("preview-loading");
   const previewContent = document.getElementById("preview-content");
   const previewEmpty = document.getElementById("preview-empty");
   const previewItems = document.getElementById("preview-items");
   const downloadBtn = document.getElementById("download-btn") as HTMLButtonElement;
-  
+
   if (previewLoading) previewLoading.style.display = "none";
-  
-  if (filteredEvidences.length === 0) {
+
+  if (filteredFootprints.length === 0) {
     if (previewContent) previewContent.classList.remove("active");
     if (previewEmpty) previewEmpty.style.display = "block";
     if (downloadBtn) downloadBtn.disabled = true;
     hideFileInfo();
     return;
   }
-  
+
   if (previewEmpty) previewEmpty.style.display = "none";
   if (previewContent) previewContent.classList.add("active");
-  
+
   // Render preview items (show first 5 + summary)
   if (previewItems) {
-    const itemsToShow = filteredEvidences.slice(0, 5);
-    previewItems.innerHTML = itemsToShow.map(e => `
+    const itemsToShow = filteredFootprints.slice(0, 5);
+    previewItems.innerHTML = itemsToShow.map(fp => `
       <div class="preview-item">
         <div class="preview-meta">
-          ${e.id.slice(0, 8)}... • ${formatDate(e.timestamp)} • ${e.messageCount} messages
+          ${fp.id.slice(0, 8)}... • ${formatDate(fp.timestamp)} • ${fp.messageCount} messages
         </div>
         <div>
-          <strong>${e.conversationId}</strong> (${e.llmProvider})
-          ${e.tags ? ` • Tags: ${e.tags}` : ''}
+          <strong>${fp.conversationId}</strong> (${fp.llmProvider})
+          ${fp.tags ? ` • Tags: ${fp.tags}` : ''}
         </div>
       </div>
     `).join('');
-    
-    if (filteredEvidences.length > 5) {
+
+    if (filteredFootprints.length > 5) {
       previewItems.innerHTML += `
         <div class="preview-item" style="background: #f8fafc; color: #6b7280; text-align: center; font-style: italic;">
-          ... and ${filteredEvidences.length - 5} more evidence records
+          ... and ${filteredFootprints.length - 5} more footprint records
         </div>
       `;
     }
   }
-  
+
   // Update file info
-  showFileInfo(filteredEvidences);
-  
+  showFileInfo(filteredFootprints);
+
   // Enable download button
   if (downloadBtn) downloadBtn.disabled = false;
 }
 
-function showFileInfo(evidences: Evidence[]) {
+function showFileInfo(footprints: Footprint[]) {
   const fileInfo = document.getElementById("file-info");
   const fileName = document.getElementById("file-name");
   const fileCount = document.getElementById("file-count");
   const fileSize = document.getElementById("file-size");
-  
+
   if (!fileInfo || !fileName || !fileCount || !fileSize) return;
-  
+
   // Generate filename based on selection
   const mode = getSelectionMode();
   const timestamp = new Date().toISOString().slice(0, 10);
-  const name = mode === 'recent' 
-    ? `evidence-export-recent-${timestamp}.zip`
-    : `evidence-export-${timestamp}.zip`;
-  
+  const name = mode === 'recent'
+    ? `footprint-export-recent-${timestamp}.zip`
+    : `footprint-export-${timestamp}.zip`;
+
   // Estimate size (rough calculation)
-  const avgSizePerEvidence = 2048; // Rough estimate in bytes
-  const estimatedSize = evidences.length * avgSizePerEvidence;
-  
+  const avgSizePerFootprint = 2048; // Rough estimate in bytes
+  const estimatedSize = footprints.length * avgSizePerFootprint;
+
   fileName.textContent = name;
-  fileCount.textContent = evidences.length.toString();
+  fileCount.textContent = footprints.length.toString();
   fileSize.textContent = formatSize(estimatedSize);
-  
+
   fileInfo.style.display = "block";
 }
 
@@ -210,28 +210,28 @@ function resetPreview() {
 // Handle tool results from the MCP server
 app.ontoolresult = (result) => {
   console.log("Received tool result:", result);
-  
+
   try {
-    // Check if this is a list-evidences result (for preview)
-    if (result.structuredContent && 'evidences' in result.structuredContent) {
-      const data = result.structuredContent as { evidences: Evidence[], total: number };
-      currentEvidences = data.evidences;
-      renderPreview(currentEvidences);
+    // Check if this is a list-footprints result (for preview)
+    if (result.structuredContent && 'footprints' in result.structuredContent) {
+      const data = result.structuredContent as { footprints: Footprint[], total: number };
+      currentFootprints = data.footprints;
+      renderPreview(currentFootprints);
       return;
     }
-    
-    // Check if this is an export-evidences result
+
+    // Check if this is an export-footprints result
     if (result.structuredContent && 'filename' in result.structuredContent) {
       exportResult = result.structuredContent as ExportResult;
-      
+
       if (exportResult.success) {
-        showSuccess(`Export completed! ${exportResult.evidenceCount} evidence files exported to ${exportResult.filename}`);
-        
+        showSuccess(`Export completed! ${exportResult.footprintCount} footprints exported to ${exportResult.filename}`);
+
         // Update model context to inform AI
         app.updateModelContext({
           content: [{
             type: "text",
-            text: `User successfully exported ${exportResult.evidenceCount} evidence files. Export saved as: ${exportResult.filename} (checksum: ${exportResult.checksum})`
+            text: `User successfully exported ${exportResult.footprintCount} footprints. Export saved as: ${exportResult.filename} (checksum: ${exportResult.checksum})`
           }]
         }).catch(console.error);
       } else {
@@ -239,7 +239,7 @@ app.ontoolresult = (result) => {
       }
       return;
     }
-    
+
     console.warn("Unexpected tool result format:", result);
   } catch (e) {
     console.error("Failed to parse tool result:", e);
@@ -249,9 +249,9 @@ app.ontoolresult = (result) => {
 
 // Global functions for the UI
 (window as any).goBack = () => {
-  // Navigate back to dashboard by calling list-evidences
+  // Navigate back to dashboard by calling list-footprints
   app.callServerTool({
-    name: "list-evidences",
+    name: "list-footprints",
     arguments: {}
   }).catch(error => {
     console.error("Failed to go back to dashboard:", error);
@@ -263,10 +263,10 @@ app.ontoolresult = (result) => {
   try {
     clearMessages();
     resetPreview();
-    
-    // Fetch latest evidence list
+
+    // Fetch latest footprint list
     await app.callServerTool({
-      name: "list-evidences",
+      name: "list-footprints",
       arguments: { limit: 1000 } // Get all for preview
     });
   } catch (error) {
@@ -278,32 +278,32 @@ app.ontoolresult = (result) => {
 (window as any).downloadExport = async () => {
   try {
     clearMessages();
-    
+
     const downloadBtn = document.getElementById("download-btn") as HTMLButtonElement;
     if (downloadBtn) {
       downloadBtn.disabled = true;
       downloadBtn.innerHTML = '⏳ Exporting...';
     }
-    
-    // Determine which evidences to export
-    const filteredEvidences = filterEvidences(currentEvidences);
-    const evidenceIds = filteredEvidences.map(e => e.id);
+
+    // Determine which footprints to export
+    const filteredFootprints = filterFootprints(currentFootprints);
+    const ids = filteredFootprints.map(fp => fp.id);
     const includeGit = getIncludeGit();
-    
-    if (evidenceIds.length === 0) {
-      showError("No evidence selected for export");
+
+    if (ids.length === 0) {
+      showError("No footprints selected for export");
       return;
     }
-    
+
     // Call export tool
     await app.callServerTool({
-      name: "export-evidences",
+      name: "export-footprints",
       arguments: {
-        evidenceIds,
+        ids,
         includeGitInfo: includeGit
       }
     });
-    
+
   } catch (error) {
     console.error("Export failed:", error);
     showError(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -321,15 +321,15 @@ app.ontoolresult = (result) => {
 function setupEventListeners() {
   const selectionRadios = document.querySelectorAll('input[name="selection"]');
   const gitCheckbox = document.getElementById("include-git");
-  
+
   selectionRadios.forEach(radio => {
     radio.addEventListener('change', () => {
-      if (currentEvidences.length > 0) {
-        renderPreview(currentEvidences);
+      if (currentFootprints.length > 0) {
+        renderPreview(currentFootprints);
       }
     });
   });
-  
+
   if (gitCheckbox) {
     gitCheckbox.addEventListener('change', () => {
       // Git info doesn't affect preview, but update UI feedback

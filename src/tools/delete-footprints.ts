@@ -5,7 +5,7 @@ import type { EvidenceDatabase } from "../lib/storage/index.js";
 
 export const deleteFootprintsSchema = {
   inputSchema: {
-    evidenceIds: z
+    ids: z
       .array(z.string())
       .min(1)
       .describe("Array of footprint IDs to delete"),
@@ -25,12 +25,12 @@ export function createDeleteFootprintsHandler(db: EvidenceDatabase) {
   return wrapToolHandler(
     "delete-footprints",
     "Verify the footprint IDs exist.",
-    async (params: { evidenceIds: string[] }) => {
-      if (!params.evidenceIds || params.evidenceIds.length === 0) {
-        throw new Error("At least one evidence ID is required");
+    async (params: { ids: string[] }) => {
+      if (!params.ids || params.ids.length === 0) {
+        throw new Error("At least one footprint ID is required");
       }
 
-      const deletedCount = db.deleteMany(params.evidenceIds);
+      const deletedCount = db.deleteMany(params.ids);
       const success = deletedCount > 0;
 
       const resultText = success

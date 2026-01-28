@@ -33,23 +33,23 @@ describe('MCP Resources', () => {
   });
 
   describe('Resource Registration', () => {
-    it('should register evidence resource with template', async () => {
+    it('should register footprint resource with template', async () => {
       const resources = await helpers.getResources();
 
       expect(resources).toBeDefined();
       expect(Array.isArray(resources)).toBe(true);
 
-      const evidenceResource = resources.find(r => r.name === 'evidence');
-      expect(evidenceResource).toBeDefined();
-      expect(evidenceResource?.uriTemplate).toBe('evidence://{id}');
-      expect(evidenceResource?.description).toContain('encrypted footprint record');
-      expect(evidenceResource?.mimeType).toBe('text/plain');
+      const footprintResource = resources.find(r => r.name === 'footprint');
+      expect(footprintResource).toBeDefined();
+      expect(footprintResource?.uriTemplate).toBe('footprint://{id}');
+      expect(footprintResource?.description).toContain('encrypted footprint record');
+      expect(footprintResource?.mimeType).toBe('text/plain');
     });
 
-    it('should read evidence resource with valid ID', async () => {
-      // First create evidence using capture-footprint tool
+    it('should read footprint resource with valid ID', async () => {
+      // First create footprint using capture-footprint tool
       const result = await helpers.executeTool('capture-footprint', {
-        conversationId: 'test-resource-evidence',
+        conversationId: 'test-resource-footprint',
         llmProvider: 'Claude Sonnet 4.5',
         content: JSON.stringify({
           method: 'GET',
@@ -64,22 +64,22 @@ describe('MCP Resources', () => {
       expect(result.id).toBeDefined();
 
       // Read through resource using the returned ID
-      const evidenceId = result.id;
-      const resourceContent = await helpers.readResource(`evidence://${evidenceId}`);
+      const footprintId = result.id;
+      const resourceContent = await helpers.readResource(`footprint://${footprintId}`);
 
       expect(resourceContent).toBeDefined();
       expect(resourceContent.contents).toBeDefined();
-      expect(resourceContent.contents[0].uri).toBe(`evidence://${evidenceId}`);
+      expect(resourceContent.contents[0].uri).toBe(`footprint://${footprintId}`);
       expect(resourceContent.contents[0].mimeType).toBe('text/plain');
       expect(resourceContent.contents[0].text).toContain('method');
       expect(resourceContent.contents[0].text).toContain('GET');
       expect(resourceContent.contents[0].text).toContain('https://api.example.com/data');
     });
 
-    it('should return error for non-existent evidence ID', async () => {
+    it('should return error for non-existent footprint ID', async () => {
       await expect(
-        helpers.readResource('evidence://non-existent-id')
-      ).rejects.toThrow('Evidence with ID non-existent-id not found');
+        helpers.readResource('footprint://non-existent-id')
+      ).rejects.toThrow('Footprint with ID non-existent-id not found');
     });
 
     it('should return error for invalid URI format', async () => {

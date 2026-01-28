@@ -133,13 +133,13 @@ describe('Error Handling & Edge Cases', () => {
       const result = await helpers.callTool('list-footprints', {});
 
       expect(result.structuredContent.total).toBe(0);
-      expect(result.structuredContent.evidences).toEqual([]);
+      expect(result.structuredContent.footprints).toEqual([]);
     });
 
     it('should handle export of empty database', async () => {
       const result = await helpers.callTool('export-footprints', {});
 
-      expect(result.structuredContent.evidenceCount).toBe(0);
+      expect(result.structuredContent.footprintCount).toBe(0);
     });
   });
 });

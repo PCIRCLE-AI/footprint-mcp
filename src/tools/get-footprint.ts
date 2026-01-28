@@ -41,42 +41,42 @@ export function createGetFootprintHandler(
 ) {
   return wrapToolHandler(
     "get-footprint",
-    "Verify the evidence ID exists and password is correct.",
+    "Verify the footprint ID exists and password is correct.",
     async (params: { id: string }) => {
-      const evidence = db.findById(params.id);
-      if (!evidence) {
-        throw new Error(`Evidence not found: ${params.id}`);
+      const fp = db.findById(params.id);
+      if (!fp) {
+        throw new Error(`Footprint not found: ${params.id}`);
       }
 
       const key = await getDerivedKey();
-      const decrypted = decrypt(evidence.encryptedContent, evidence.nonce, key);
+      const decrypted = decrypt(fp.encryptedContent, fp.nonce, key);
 
       const gitInfo =
-        evidence.gitCommitHash && evidence.gitTimestamp
+        fp.gitCommitHash && fp.gitTimestamp
           ? {
-              commitHash: evidence.gitCommitHash,
-              timestamp: evidence.gitTimestamp,
+              commitHash: fp.gitCommitHash,
+              timestamp: fp.gitTimestamp,
             }
           : null;
 
       return formatSuccessResponse(
-        "Evidence retrieved successfully",
+        "Footprint retrieved successfully",
         {
-          ID: evidence.id,
-          Timestamp: evidence.timestamp,
-          Provider: evidence.llmProvider,
-          "Message Count": evidence.messageCount,
+          ID: fp.id,
+          Timestamp: fp.timestamp,
+          Provider: fp.llmProvider,
+          "Message Count": fp.messageCount,
           "Content Preview": `${decrypted.substring(0, 100)}...`,
         },
         {
-          id: evidence.id,
-          timestamp: evidence.timestamp,
-          conversationId: evidence.conversationId,
-          llmProvider: evidence.llmProvider,
+          id: fp.id,
+          timestamp: fp.timestamp,
+          conversationId: fp.conversationId,
+          llmProvider: fp.llmProvider,
           content: decrypted,
-          messageCount: evidence.messageCount,
+          messageCount: fp.messageCount,
           gitInfo,
-          tags: evidence.tags,
+          tags: fp.tags,
         },
       );
     },

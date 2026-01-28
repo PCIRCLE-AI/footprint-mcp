@@ -14,7 +14,7 @@ describe("TraceGuard MCP Server Integration", () => {
     // Use unique database path for each test to avoid conflicts
     testDbPath = path.join(
       process.cwd(),
-      `test-evidence-${Date.now()}-${Math.random().toString(36).substring(7)}.db`,
+      `test-footprint-${Date.now()}-${Math.random().toString(36).substring(7)}.db`,
     );
 
     if (fs.existsSync(testDbPath)) {
@@ -38,7 +38,7 @@ describe("TraceGuard MCP Server Integration", () => {
     // Clean up exported files
     const exports = fs
       .readdirSync(".")
-      .filter((f) => f.startsWith("evidence-export-"));
+      .filter((f) => f.startsWith("footprint-export-"));
     exports.forEach((f) => fs.unlinkSync(f));
   });
 
@@ -63,7 +63,7 @@ describe("TraceGuard MCP Server Integration", () => {
     const listResult = await helpers.callTool("list-footprints", {});
 
     expect(listResult.structuredContent.total).toBe(1);
-    expect((listResult.structuredContent as any).evidences[0]).toMatchObject({
+    expect((listResult.structuredContent as any).footprints[0]).toMatchObject({
       id: evidenceId,
       conversationId: "test-conv-001",
       llmProvider: "Claude Sonnet 4.5",
@@ -83,14 +83,14 @@ describe("TraceGuard MCP Server Integration", () => {
 
     // 4. Export evidences
     const exportResult = await helpers.callTool("export-footprints", {
-      evidenceIds: [evidenceId],
+      ids: [evidenceId],
       includeGitInfo: true,
     });
 
     expect(exportResult.structuredContent).toMatchObject({
       success: true,
-      evidenceCount: 1,
-      filename: expect.stringMatching(/^evidence-export-/),
+      footprintCount: 1,
+      filename: expect.stringMatching(/^footprint-export-/),
       checksum: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
 
@@ -129,21 +129,21 @@ describe("TraceGuard MCP Server Integration", () => {
 
     // Export subset
     const exportResult = await helpers.callTool("export-footprints", {
-      evidenceIds: [ids[0], ids[2]],
+      ids: [ids[0], ids[2]],
     });
 
-    expect(exportResult.structuredContent.evidenceCount).toBe(2);
+    expect(exportResult.structuredContent.footprintCount).toBe(2);
   });
 
   it("should handle errors gracefully", async () => {
-    // Try to get non-existent evidence
+    // Try to get non-existent footprint
     await expect(
       helpers.callTool("get-footprint", { id: "nonexistent-id" }),
-    ).rejects.toThrow("Evidence not found");
+    ).rejects.toThrow("Footprint not found");
 
-    // Try to export non-existent evidence
+    // Try to export non-existent footprint
     await expect(
-      helpers.callTool("export-footprints", { evidenceIds: ["bad-id"] }),
-    ).rejects.toThrow("Evidence IDs not found");
+      helpers.callTool("export-footprints", { ids: ["bad-id"] }),
+    ).rejects.toThrow("Footprint IDs not found");
   });
 });

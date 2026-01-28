@@ -82,14 +82,14 @@ export function registerUIResources(server: McpServer) {
     {
       uri: "ui://footprint/detail.html",
       filename: "detail.html",
-      title: "Evidence Detail - Footprint",
+      title: "Footprint Detail",
       emoji: "🔍",
       description: "Detail view"
     },
     {
       uri: "ui://footprint/export.html",
       filename: "export.html",
-      title: "Export Evidence - Footprint",
+      title: "Export Footprint",
       emoji: "📦",
       description: "Export view"
     }

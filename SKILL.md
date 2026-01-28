@@ -2,7 +2,7 @@
 
 > MCP server for capturing and encrypting AI conversations as verifiable records with Git timestamps.
 
-**Package:** `@pcircle/footprint` (v1.1.1)  
+**Package:** `@pcircle/footprint` (v1.2.1)  
 **Protocol:** Model Context Protocol (MCP)  
 **License:** MIT
 
@@ -26,7 +26,7 @@ Should I capture this conversation?
 │   ├─ Basic troubleshooting
 │   └─ Draft/brainstorming sessions (unless finalized)
 └─ Uncertain content → ASK user
-    └─ "Would you like me to save this conversation as evidence?"
+    └─ "Would you like me to save this conversation as a footprint?"
 ```
 
 ## Specific Trigger Patterns
@@ -53,7 +53,7 @@ Should I capture this conversation?
 ## Available Tools
 
 ### 1. `capture-footprint`
-Save a conversation as encrypted evidence.
+Save a conversation as encrypted footprint.
 
 **Input Parameters:**
 ```json
@@ -68,22 +68,22 @@ Save a conversation as encrypted evidence.
 
 **Expected Output (text):**
 ```
-✅ Evidence captured successfully
-- Evidence ID: `550e8400-e29b-41d4-a716-446655440000`
+✅ Footprint captured successfully
+- Footprint ID: `550e8400-e29b-41d4-a716-446655440000`
 - Conversation ID: `api-auth-decision-2026-01-28`
 - Messages: 15 
 - Tags: api,oauth,security,decision,approved
 - Git hash: `a1b2c3d4e5f6789...`
 - Created: 2026-01-28T14:30:45Z
 
-Keep this Evidence ID safe for future reference.
+Keep this Footprint ID safe for future reference.
 ```
 
 **Expected Output (structuredContent):**
 ```json
 {
-  "type": "evidence_created",
-  "evidenceId": "550e8400-e29b-41d4-a716-446655440000",
+  "type": "footprint_created",
+  "footprintId": "550e8400-e29b-41d4-a716-446655440000",
   "conversationId": "api-auth-decision-2026-01-28", 
   "messageCount": 15,
   "tags": ["api", "oauth", "security", "decision", "approved"],
@@ -94,7 +94,7 @@ Keep this Evidence ID safe for future reference.
 ```
 
 ### 2. `list-footprints`
-List all captured evidence (metadata only).
+List all captured footprints (metadata only).
 
 **Input Parameters:**
 ```json
@@ -106,7 +106,7 @@ List all captured evidence (metadata only).
 
 **Expected Output (text):**
 ```
-📋 Evidence Archive (10 most recent)
+📋 Footprint Archive (10 most recent)
 1. api-auth-decision-2026-01-28 | 15 msgs | api,oauth,security
 2. patent-algorithm-2026-01-27 | 32 msgs | ip,patent,algorithm  
 3. contract-review-2026-01-26 | 8 msgs | legal,contract
@@ -116,9 +116,9 @@ List all captured evidence (metadata only).
 **Expected Output (structuredContent):**
 ```json
 {
-  "type": "evidence_list",
+  "type": "footprint_list",
   "total": 25,
-  "evidences": [
+  "footprints": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "conversationId": "api-auth-decision-2026-01-28",
@@ -131,7 +131,7 @@ List all captured evidence (metadata only).
 ```
 
 ### 3. `get-footprint`
-Retrieve and decrypt specific evidence.
+Retrieve and decrypt a specific footprint.
 
 **Input Parameters:**
 ```json
@@ -142,7 +142,7 @@ Retrieve and decrypt specific evidence.
 
 **Expected Output (text):**
 ```
-📄 Evidence Retrieved
+📄 Footprint Retrieved
 - ID: 550e8400-e29b-41d4-a716-446655440000
 - Created: 2026-01-28T14:30:45Z
 - Provider: Claude Sonnet 4.5
@@ -154,7 +154,7 @@ Assistant: I recommend using PKCE flow...
 ```
 
 ### 4. `search-footprints`
-Find evidence by content or tags.
+Find footprints by content or tags.
 
 **Input Parameters:**
 ```json
@@ -166,7 +166,7 @@ Find evidence by content or tags.
 ```
 
 ### 5. `export-footprints`
-Export evidence as encrypted archive.
+Export footprints as encrypted archive.
 
 **Input Parameters:**
 ```json
@@ -179,8 +179,8 @@ Export evidence as encrypted archive.
 **Expected Output (structuredContent):**
 ```json
 {
-  "type": "evidence_export",
-  "filename": "evidence-550e8400-export.zip",
+  "type": "footprint_export",
+  "filename": "footprint-550e8400-export.zip",
   "base64Data": "UEsDBBQAAAAIAL...",
   "size": 2048,
   "checksum": "sha256:a1b2c3d4..."
@@ -188,7 +188,7 @@ Export evidence as encrypted archive.
 ```
 
 ### 6. `verify-footprint`
-Verify evidence integrity (checksum + Git timestamp).
+Verify footprint integrity (checksum + Git timestamp).
 
 **Input Parameters:**
 ```json
@@ -199,7 +199,7 @@ Verify evidence integrity (checksum + Git timestamp).
 
 **Expected Output (text):**
 ```
-🔐 Evidence Verification Report
+🔐 Footprint Verification Report
 - ID: 550e8400-e29b-41d4-a716-446655440000
 - Content Hash: ✅ Valid (SHA-256 matches)
 - Git Timestamp: ✅ Verified (2026-01-28T14:30:45Z)
@@ -252,29 +252,29 @@ Verify evidence integrity (checksum + Git timestamp).
 
 ### When to Use Each Tool
 - **capture-footprint**: Primary tool for saving conversations
-- **list-footprints**: Browse/overview existing evidence
-- **search-footprints**: Find specific content across evidence
-- **get-footprint**: Retrieve full content of specific evidence
+- **list-footprints**: Browse/overview existing footprints
+- **search-footprints**: Find specific content across footprints
+- **get-footprint**: Retrieve full content of a specific footprint
 - **export-footprints**: Legal/audit export needs
-- **verify-footprint**: Verify evidence integrity and checksums
+- **verify-footprint**: Verify footprint integrity and checksums
 
 ## Token-Efficient Agent Responses
 
-**After capturing evidence (keep it brief):**
+**After capturing a footprint (keep it brief):**
 ```
-✅ Evidence saved as `{conversationId}` 
+✅ Footprint saved as `{conversationId}`
 ID: `{first-8-chars-of-id}`...
 Tags: {tags}
 ```
 
 **When suggesting capture:**
 ```
-💡 This looks like valuable evidence (contains {trigger}). Save it?
+💡 This looks like valuable content (contains {trigger}). Save it as a footprint?
 ```
 
 **When declining to capture:**
 ```
-ℹ️ Skipping evidence capture (casual conversation)
+ℹ️ Skipping footprint capture (casual conversation)
 ```
 
 **For retrieval:**
@@ -288,10 +288,10 @@ Tags: {tags}
 | Error | Likely Cause | Recovery Action |
 |-------|--------------|-----------------|
 | "Password required" | FOOTPRINT_PASSWORD not set | 1. Check env config<br>2. Restart MCP server<br>3. Verify password in env |
-| "Evidence not found" | Invalid/wrong ID | 1. Use `list-footprints` to find correct ID<br>2. Search by conversationId<br>3. Check if user meant different evidence |
-| "Decryption failed" | Password changed/wrong | 1. Verify current password matches<br>2. Check if evidence pre-dates password change<br>3. Try with backup password if available |
+| "Footprint not found" | Invalid/wrong ID | 1. Use `list-footprints` to find correct ID<br>2. Search by conversationId<br>3. Check if user meant different footprint |
+| "Decryption failed" | Password changed/wrong | 1. Verify current password matches<br>2. Check if footprint pre-dates password change<br>3. Try with backup password if available |
 | "Database error" | DB path/permissions issues | 1. Check FOOTPRINT_DB_PATH exists<br>2. Verify file permissions<br>3. Create directory if missing |
-| "Git repository error" | Git not initialized | 1. Initialize git in evidence directory<br>2. Set git user.name/user.email<br>3. Make initial commit |
+| "Git repository error" | Git not initialized | 1. Initialize git in footprint directory<br>2. Set git user.name/user.email<br>3. Make initial commit |
 | "Capture timeout" | Large conversation size | 1. Split into smaller chunks<br>2. Reduce messageCount<br>3. Compress content before capture |
 
 **Agent Recovery Protocol:**
@@ -311,7 +311,7 @@ Agent:
 1. ✅ Capture immediately (explicit request)
 2. Use conversationId: "api-design-discussion-2026-01-28"
 3. Tags: "api,design,architecture"
-4. Report success with Evidence ID
+4. Report success with Footprint ID
 ```
 
 ### 2. High-Value Content Detection  
@@ -320,27 +320,27 @@ User: "We've decided to patent this algorithm approach."
 
 Agent:
 1. 🔍 Detect trigger: "patent" + "decided"
-2. 💡 Suggest: "This looks like valuable evidence (contains patent decision). Save it?"
+2. 💡 Suggest: "This looks like valuable content (contains patent decision). Save it as a footprint?"
 3. ✅ If user agrees, capture with tags: "patent,algorithm,decision,ip"
 ```
 
-### 3. Evidence Retrieval
+### 3. Footprint Retrieval
 ```
 User: "Find the conversation about OAuth implementation"
 
 Agent:
-1. 🔍 Search: list-footprints or search-evidence with "OAuth"
+1. 🔍 Search: list-footprints or search-footprints with "OAuth"
 2. 📄 Present matches with conversationId and brief summary
 3. 🎯 If user selects one, get-footprint to show full content
 ```
 
 ### 4. Legal Export
 ```
-User: "Export the patent evidence for filing"
+User: "Export the patent footprints for filing"
 
-Agent: 
-1. 🔍 Help identify relevant evidence (search by "patent" tag)
-2. 📦 Export each evidence as encrypted ZIP
+Agent:
+1. 🔍 Help identify relevant footprints (search by "patent" tag)
+2. 📦 Export each footprint as encrypted ZIP
 3. ✅ Provide files with verification instructions
 4. 📋 Remind about Git hash verification for legal proof
 ```
@@ -351,11 +351,11 @@ Agent:
 - **Encryption**: XChaCha20-Poly1305 (256-bit) with Argon2id key derivation  
 - **Git Timestamps**: Cryptographic proof of creation time
 - **SHA-256 Checksums**: Detect any content tampering
-- **Evidence Chain**: Each capture creates immutable Git commit
+- **Footprint Chain**: Each capture creates immutable Git commit
 - **Storage**: Local SQLite with encrypted BLOBs (no cloud, no tracking)
 
 **For legal proceedings:**
-1. Export evidence with `export-evidence` 
+1. Export footprint with `export-footprints` 
 2. Verify Git hash against repository
 3. Check SHA-256 checksum matches
 4. Git log shows creation timestamp
@@ -389,7 +389,7 @@ npx @pcircle/footprint
       "command": "npx",
       "args": ["@pcircle/footprint"],
       "env": {
-        "FOOTPRINT_DB_PATH": "/path/to/evidence.db",
+        "FOOTPRINT_DB_PATH": "/path/to/footprints.db",
         "FOOTPRINT_PASSWORD": "your-secure-password-here"
       }
     }
@@ -399,14 +399,14 @@ npx @pcircle/footprint
 
 **Environment Variables:**
 - `FOOTPRINT_PASSWORD` (required): Encryption passphrase
-- `FOOTPRINT_DB_PATH` (optional): Path to SQLite database (default: `./evidence.db` in current directory)
+- `FOOTPRINT_DB_PATH` (optional): Path to SQLite database (default: `./footprints.db` in current directory)
 
 ## Performance Notes
 
 - **Capture time**: ~1-3 seconds per conversation
 - **Database size**: ~1KB per message on average
-- **Git overhead**: ~100 bytes per evidence commit
-- **Search speed**: Sub-second for <1000 evidence records
+- **Git overhead**: ~100 bytes per footprint commit
+- **Search speed**: Sub-second for <1000 footprint records
 - **Export time**: ~5-15 seconds depending on content size
 
 Large conversations (>100 messages) may take longer to encrypt and commit.

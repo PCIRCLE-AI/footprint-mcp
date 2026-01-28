@@ -43,12 +43,12 @@ export function createVerifyFootprintHandler(
 ) {
   return wrapToolHandler(
     "verify-footprint",
-    "Verify the evidence ID exists and encryption password is correct.",
+    "Verify the footprint ID exists and encryption password is correct.",
     async (params: { id: string }) => {
       // Find the footprint record
-      const evidence = db.findById(params.id);
-      if (!evidence) {
-        throw new Error(`Evidence with ID ${params.id} not found`);
+      const fp = db.findById(params.id);
+      if (!fp) {
+        throw new Error(`Footprint with ID ${params.id} not found`);
       }
 
       const key = await getDerivedKey();
@@ -71,8 +71,8 @@ export function createVerifyFootprintHandler(
       // This fixes the redundant decryption issue identified in Simplifier Round 1
       try {
         const decryptedContent = decrypt(
-          evidence.encryptedContent,
-          evidence.nonce,
+          fp.encryptedContent,
+          fp.nonce,
           key,
         );
         const computedHash = crypto
@@ -81,7 +81,7 @@ export function createVerifyFootprintHandler(
           .digest("hex");
 
         // Content integrity check
-        checks.contentIntegrity.passed = computedHash === evidence.contentHash;
+        checks.contentIntegrity.passed = computedHash === fp.contentHash;
         checks.contentIntegrity.hash = computedHash;
 
         // Encryption status check (decryption succeeded)
@@ -94,10 +94,10 @@ export function createVerifyFootprintHandler(
       }
 
       // Git Timestamp: Check if gitCommitHash exists and gitTimestamp is valid
-      checks.gitTimestamp.commitHash = evidence.gitCommitHash;
-      checks.gitTimestamp.timestamp = evidence.gitTimestamp;
+      checks.gitTimestamp.commitHash = fp.gitCommitHash;
+      checks.gitTimestamp.timestamp = fp.gitTimestamp;
       checks.gitTimestamp.passed = !!(
-        evidence.gitCommitHash && evidence.gitTimestamp
+        fp.gitCommitHash && fp.gitTimestamp
       );
 
       const verified =
@@ -113,8 +113,8 @@ export function createVerifyFootprintHandler(
       };
 
       const statusText = verified
-        ? `✅ Evidence ${params.id} verified successfully\n- Content: ${statusSymbols.content} Integrity preserved\n- Git: ${statusSymbols.git} Timestamp verified\n- Encryption: ${statusSymbols.encryption} XChaCha20-Poly1305`
-        : `❌ Evidence ${params.id} verification failed\n- Content: ${statusSymbols.content} Integrity check\n- Git: ${statusSymbols.git} Timestamp check\n- Encryption: ${statusSymbols.encryption} Decryption check`;
+        ? `✅ Footprint ${params.id} verified successfully\n- Content: ${statusSymbols.content} Integrity preserved\n- Git: ${statusSymbols.git} Timestamp verified\n- Encryption: ${statusSymbols.encryption} XChaCha20-Poly1305`
+        : `❌ Footprint ${params.id} verification failed\n- Content: ${statusSymbols.content} Integrity check\n- Git: ${statusSymbols.git} Timestamp check\n- Encryption: ${statusSymbols.encryption} Decryption check`;
 
       return createToolResponse(statusText, {
         id: params.id,

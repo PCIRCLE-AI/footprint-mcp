@@ -14,8 +14,8 @@ describe("MCP Tools", () => {
 
   beforeEach(() => {
     // Create unique temporary directory for each test
-    tempDir = fs.mkdtempSync(path.join(tmpdir(), "evidence-mcp-test-"));
-    testDbPath = path.join(tempDir, "test-evidence.db");
+    tempDir = fs.mkdtempSync(path.join(tmpdir(), "footprint-mcp-test-"));
+    testDbPath = path.join(tempDir, "test-footprint.db");
 
     // Clean up any existing test database
     if (fs.existsSync(testDbPath)) {
@@ -128,9 +128,9 @@ describe("MCP Tools", () => {
       });
 
       expect(result).toHaveProperty("structuredContent");
-      expect(result.structuredContent).toHaveProperty("evidences");
+      expect(result.structuredContent).toHaveProperty("footprints");
       expect(result.structuredContent).toHaveProperty("total");
-      expect(result.structuredContent.evidences).toHaveLength(0);
+      expect(result.structuredContent.footprints).toHaveLength(0);
       expect(result.structuredContent.total).toBe(0);
     });
 

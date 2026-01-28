@@ -38,8 +38,8 @@ export function createTestEnvironment(
   password: string = "test-password-123",
 ): TestEnvironment {
   // Create unique temporary directory for each test
-  const tempDir = fs.mkdtempSync(path.join(tmpdir(), "evidence-mcp-test-"));
-  const testDbPath = path.join(tempDir, "test-evidence.db");
+  const tempDir = fs.mkdtempSync(path.join(tmpdir(), "footprint-mcp-test-"));
+  const testDbPath = path.join(tempDir, "test-footprint.db");
 
   // Clean up any existing test database
   if (fs.existsSync(testDbPath)) {

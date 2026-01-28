@@ -8,14 +8,14 @@ const app = new App({
 let lastDashboardData: DashboardData | null = null;
 let activeTagFilters: Set<string> = new Set();
 let filterMode: 'AND' | 'OR' = 'AND';
-let allEvidences: Evidence[] = [];
+let allFootprints: Footprint[] = [];
 let lastActivityCheck: Date | null = null;
 let pollingInterval: number | null = null;
 let isConnected = false;
-let selectedEvidenceIds: Set<string> = new Set();
+let selectedFootprintIds: Set<string> = new Set();
 let searchQuery: string = '';
 
-interface Evidence {
+interface Footprint {
   id: string;
   conversationId: string;
   timestamp: string;
@@ -27,7 +27,7 @@ interface Evidence {
 }
 
 interface DashboardData {
-  evidences: Evidence[];
+  footprints: Footprint[];
   total?: number;
   todayCount?: number;
   totalSize?: number;
@@ -37,7 +37,7 @@ interface DashboardData {
 interface TimelinePoint {
   date: string;
   count: number;
-  evidences: Evidence[];
+  footprints: Footprint[];
 }
 
 function formatSize(bytes: number): string {
@@ -68,10 +68,10 @@ function formatDate(timestamp: string): string {
 }
 
 // Tag Management Functions
-function getAllTags(evidences: Evidence[]): string[] {
+function getAllTags(footprints: Footprint[]): string[] {
   const tagSet = new Set<string>();
-  evidences.forEach(evidence => {
-    evidence.tags?.forEach(tag => tagSet.add(tag));
+  footprints.forEach(footprint => {
+    footprint.tags?.forEach(tag => tagSet.add(tag));
   });
   return Array.from(tagSet).sort();
 }
@@ -104,37 +104,37 @@ function createTagChip(tag: string, options: {
   return `<span class="${classes}" data-tag="${tag}" style="${style}">${tag}${closeButton}</span>`;
 }
 
-function filterEvidences(evidences: Evidence[]): Evidence[] {
-  let filtered = evidences;
-  
+function filterFootprints(footprints: Footprint[]): Footprint[] {
+  let filtered = footprints;
+
   // Apply search filter
   if (searchQuery.trim()) {
     const query = searchQuery.toLowerCase().trim();
-    filtered = filtered.filter(evidence => {
+    filtered = filtered.filter(footprint => {
       const searchableText = [
-        evidence.id,
-        evidence.conversationId,
-        evidence.llmProvider,
-        ...(evidence.tags || [])
+        footprint.id,
+        footprint.conversationId,
+        footprint.llmProvider,
+        ...(footprint.tags || [])
       ].join(' ').toLowerCase();
       return searchableText.includes(query);
     });
   }
-  
+
   // Apply tag filter
   if (activeTagFilters.size > 0) {
-    filtered = filtered.filter(evidence => {
-      const evidenceTags = evidence.tags || [];
+    filtered = filtered.filter(footprint => {
+      const footprintTags = footprint.tags || [];
       const filterTags = Array.from(activeTagFilters);
-      
+
       if (filterMode === 'AND') {
-        return filterTags.every(tag => evidenceTags.includes(tag));
+        return filterTags.every(tag => footprintTags.includes(tag));
       } else {
-        return filterTags.some(tag => evidenceTags.includes(tag));
+        return filterTags.some(tag => footprintTags.includes(tag));
       }
     });
   }
-  
+
   return filtered;
 }
 
@@ -151,12 +151,12 @@ function highlightText(text: string, query: string): string {
 function updateSearchInfo(totalCount: number, filteredCount: number) {
   const info = document.getElementById('search-results-info');
   if (!info) return;
-  
+
   if (searchQuery.trim()) {
     if (filteredCount === 0) {
       info.textContent = `No results found for "${searchQuery}"`;
     } else if (filteredCount < totalCount) {
-      info.textContent = `Showing ${filteredCount} of ${totalCount} evidence (filtered by search)`;
+      info.textContent = `Showing ${filteredCount} of ${totalCount} footprints (filtered by search)`;
     } else {
       info.textContent = `${filteredCount} results`;
     }
@@ -168,20 +168,20 @@ function updateSearchInfo(totalCount: number, filteredCount: number) {
 function updateTagFilters() {
   const container = document.getElementById('tag-filter-chips');
   const clearBtn = document.getElementById('clear-filters-btn');
-  
+
   if (!container || !clearBtn) return;
-  
-  const allTags = getAllTags(allEvidences);
-  
-  container.innerHTML = allTags.map(tag => 
-    createTagChip(tag, { 
+
+  const allTags = getAllTags(allFootprints);
+
+  container.innerHTML = allTags.map(tag =>
+    createTagChip(tag, {
       isActive: activeTagFilters.has(tag),
       showClose: activeTagFilters.has(tag)
     })
   ).join('');
-  
+
   clearBtn.style.display = activeTagFilters.size > 0 ? 'block' : 'none';
-  
+
   // Add click listeners
   container.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
@@ -210,12 +210,12 @@ function toggleTagFilter(tag: string) {
 }
 
 function updateView() {
-  if (!allEvidences.length) return;
-  
-  const filteredEvidences = filterEvidences(allEvidences);
-  renderTable(filteredEvidences);
-  renderTimeline(filteredEvidences);
-  updateStats({ evidences: filteredEvidences });
+  if (!allFootprints.length) return;
+
+  const filteredFootprints = filterFootprints(allFootprints);
+  renderTable(filteredFootprints);
+  renderTimeline(filteredFootprints);
+  updateStats({ footprints: filteredFootprints });
   updateTagFilters();
 }
 
@@ -239,21 +239,21 @@ function hideTagModal() {
 function renderTagList() {
   const tagList = document.getElementById('tag-list');
   if (!tagList) return;
-  
-  const allTags = getAllTags(allEvidences);
+
+  const allTags = getAllTags(allFootprints);
   if (allTags.length === 0) {
     tagList.innerHTML = '<div class="no-tags">No tags found</div>';
     return;
   }
-  
+
   // Calculate tag counts
   const tagCounts = new Map<string, number>();
-  allEvidences.forEach(evidence => {
-    evidence.tags?.forEach(tag => {
+  allFootprints.forEach(footprint => {
+    footprint.tags?.forEach(tag => {
       tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
     });
   });
-  
+
   tagList.innerHTML = allTags.map(tag => {
     const count = tagCounts.get(tag) || 0;
     const color = getTagColor(tag);
@@ -280,16 +280,16 @@ async function editTag(oldTag: string) {
         name: 'rename-tag',
         arguments: { oldTag, newTag: newTag.trim() }
       });
-      
+
       const structuredContent = result.structuredContent as { updatedCount: number; success: boolean } | undefined;
-      
+
       if (structuredContent?.success) {
-        alert(`Renamed tag "${oldTag}" to "${newTag.trim()}" in ${structuredContent.updatedCount} evidence(s)`);
+        alert(`Renamed tag "${oldTag}" to "${newTag.trim()}" in ${structuredContent.updatedCount} footprint(s)`);
         // Refresh data to show updated tags
         await refreshData();
         renderTagList();
       } else {
-        alert(`No evidence found with tag "${oldTag}"`);
+        alert(`No footprint found with tag "${oldTag}"`);
       }
     } catch (error) {
       console.error('Failed to rename tag:', error);
@@ -299,22 +299,22 @@ async function editTag(oldTag: string) {
 }
 
 async function deleteTag(tag: string) {
-  if (confirm(`Delete tag "${tag}" from all evidence? This cannot be undone.`)) {
+  if (confirm(`Delete tag "${tag}" from all footprints? This cannot be undone.`)) {
     try {
       const result = await app.callServerTool({
         name: 'remove-tag',
         arguments: { tag }
       });
-      
+
       const structuredContent = result.structuredContent as { updatedCount: number; success: boolean } | undefined;
-      
+
       if (structuredContent?.success) {
-        alert(`Removed tag "${tag}" from ${structuredContent.updatedCount} evidence(s)`);
+        alert(`Removed tag "${tag}" from ${structuredContent.updatedCount} footprint(s)`);
         // Refresh data to show updated tags
         await refreshData();
         renderTagList();
       } else {
-        alert(`No evidence found with tag "${tag}"`);
+        alert(`No footprint found with tag "${tag}"`);
       }
     } catch (error) {
       console.error('Failed to delete tag:', error);
@@ -328,44 +328,44 @@ function updateStats(data: DashboardData) {
   const todayElement = document.getElementById("today-count");
   const sizeElement = document.getElementById("total-size");
   const tagElement = document.getElementById("tag-count");
-  
+
   if (totalElement) {
-    totalElement.textContent = String(data.total ?? data.evidences?.length ?? 0);
+    totalElement.textContent = String(data.total ?? data.footprints?.length ?? 0);
   }
-  
+
   if (todayElement) {
     const today = new Date().toDateString();
-    const todayCount = data.evidences?.filter(e => 
-      new Date(e.timestamp).toDateString() === today
+    const todayCount = data.footprints?.filter(fp =>
+      new Date(fp.timestamp).toDateString() === today
     ).length ?? 0;
     todayElement.textContent = String(data.todayCount ?? todayCount);
   }
-  
+
   if (sizeElement) {
-    const totalSize = data.totalSize ?? 
-      data.evidences?.reduce((sum, e) => sum + (e.size ?? 0), 0) ?? 0;
+    const totalSize = data.totalSize ??
+      data.footprints?.reduce((sum, fp) => sum + (fp.size ?? 0), 0) ?? 0;
     sizeElement.textContent = formatSize(totalSize);
   }
-  
+
   if (tagElement) {
-    const uniqueTags = new Set(data.evidences?.flatMap(e => e.tags) ?? []);
+    const uniqueTags = new Set(data.footprints?.flatMap(fp => fp.tags) ?? []);
     tagElement.textContent = String(data.tagCount ?? uniqueTags.size);
   }
 }
 
-function renderTable(evidences: Evidence[]) {
-  const tbody = document.querySelector("#evidence-table tbody");
+function renderTable(footprints: Footprint[]) {
+  const tbody = document.querySelector("#footprint-table tbody");
   if (!tbody) return;
-  
+
   // Update search results info
-  updateSearchInfo(allEvidences.length, evidences.length);
-  
-  if (!evidences || evidences.length === 0) {
-    let noResultsMessage = 'No evidence found';
+  updateSearchInfo(allFootprints.length, footprints.length);
+
+  if (!footprints || footprints.length === 0) {
+    let noResultsMessage = 'No footprints found';
     if (searchQuery.trim()) {
-      noResultsMessage = `No evidence matches "${searchQuery}"`;
+      noResultsMessage = `No footprints match "${searchQuery}"`;
     } else if (activeTagFilters.size > 0) {
-      noResultsMessage = `No evidence matches the selected tag${activeTagFilters.size > 1 ? 's' : ''}: ${Array.from(activeTagFilters).join(', ')}`;
+      noResultsMessage = `No footprints match the selected tag${activeTagFilters.size > 1 ? 's' : ''}: ${Array.from(activeTagFilters).join(', ')}`;
     }
     tbody.innerHTML = `
       <tr>
@@ -374,33 +374,33 @@ function renderTable(evidences: Evidence[]) {
     `;
     return;
   }
-  
-  tbody.innerHTML = evidences.map(e => {
-    const tagChips = e.tags?.length 
-      ? e.tags.map(tag => createTagChip(tag, { isClickable: true })).join(' ')
+
+  tbody.innerHTML = footprints.map(fp => {
+    const tagChips = fp.tags?.length
+      ? fp.tags.map(tag => createTagChip(tag, { isClickable: true })).join(' ')
       : '<span style="color: #9ca3af; font-style: italic;">No tags</span>';
-    
+
     // Apply highlighting to searchable fields
-    const displayId = highlightText(e.id.slice(0, 8), searchQuery) + '...';
-    const displayConversationId = highlightText(e.conversationId || 'N/A', searchQuery);
-    const displayProvider = searchQuery.trim() ? highlightText(e.llmProvider || '', searchQuery) : '';
-    
+    const displayId = highlightText(fp.id.slice(0, 8), searchQuery) + '...';
+    const displayConversationId = highlightText(fp.conversationId || 'N/A', searchQuery);
+    const displayProvider = searchQuery.trim() ? highlightText(fp.llmProvider || '', searchQuery) : '';
+
     return `
-      <tr data-evidence-id="${e.id}">
+      <tr data-footprint-id="${fp.id}">
         <td class="checkbox-cell">
-          <input type="checkbox" class="evidence-checkbox" value="${e.id}" ${selectedEvidenceIds.has(e.id) ? 'checked' : ''}>
+          <input type="checkbox" class="footprint-checkbox" value="${fp.id}" ${selectedFootprintIds.has(fp.id) ? 'checked' : ''}>
         </td>
-        <td title="${e.id}">${displayId}</td>
+        <td title="${fp.id}">${displayId}</td>
         <td>${displayConversationId}${displayProvider ? ` <small style="color:#6b7280">(${displayProvider})</small>` : ''}</td>
-        <td>${formatDate(e.timestamp)}</td>
+        <td>${formatDate(fp.timestamp)}</td>
         <td class="tag-cell">${tagChips}</td>
       </tr>
     `;
   }).join("");
-  
+
   // Re-attach event listeners for checkboxes
-  setupEvidenceCheckboxes();
-  
+  setupFootprintCheckboxes();
+
   // Add click listeners for tag chips in table
   tbody.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
@@ -418,64 +418,64 @@ function getTimelinePeriod(): string {
   return activeBtn?.getAttribute('data-period') || '7d';
 }
 
-function filterEvidencesByPeriod(evidences: Evidence[], period: string): Evidence[] {
-  if (period === 'all') return evidences;
-  
+function filterFootprintsByPeriod(footprints: Footprint[], period: string): Footprint[] {
+  if (period === 'all') return footprints;
+
   const now = new Date();
   const days = parseInt(period.replace('d', ''));
   const cutoff = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
-  
-  return evidences.filter(e => {
+
+  return footprints.filter(fp => {
     try {
-      return new Date(e.timestamp) >= cutoff;
+      return new Date(fp.timestamp) >= cutoff;
     } catch {
       return false;
     }
   });
 }
 
-function groupEvidencesByDate(evidences: Evidence[]): TimelinePoint[] {
-  const groups = new Map<string, Evidence[]>();
-  
-  evidences.forEach(evidence => {
+function groupFootprintsByDate(footprints: Footprint[]): TimelinePoint[] {
+  const groups = new Map<string, Footprint[]>();
+
+  footprints.forEach(footprint => {
     try {
-      const date = new Date(evidence.timestamp).toISOString().split('T')[0];
+      const date = new Date(footprint.timestamp).toISOString().split('T')[0];
       if (!groups.has(date)) {
         groups.set(date, []);
       }
-      groups.get(date)!.push(evidence);
+      groups.get(date)!.push(footprint);
     } catch {
       // Skip invalid timestamps
     }
   });
-  
+
   return Array.from(groups.entries())
-    .map(([date, evidences]) => ({
+    .map(([date, footprints]) => ({
       date,
-      count: evidences.length,
-      evidences
+      count: footprints.length,
+      footprints
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function renderTimeline(evidences: Evidence[]) {
+function renderTimeline(footprints: Footprint[]) {
   const timeline = document.getElementById('timeline');
   const timelineLoading = document.getElementById('timeline-loading');
-  
+
   if (!timeline || !timelineLoading) return;
-  
+
   const period = getTimelinePeriod();
-  const filteredEvidences = filterEvidencesByPeriod(evidences, period);
-  const timelinePoints = groupEvidencesByDate(filteredEvidences);
-  
+  const filteredFootprints = filterFootprintsByPeriod(footprints, period);
+  const timelinePoints = groupFootprintsByDate(filteredFootprints);
+
   timelineLoading.style.display = 'none';
-  
+
   // Clear existing timeline points
   const existingPoints = timeline.querySelectorAll('.timeline-point, .timeline-label, .timeline-tooltip');
   existingPoints.forEach(el => el.remove());
-  
+
   if (timelinePoints.length === 0) {
-    timeline.innerHTML = '<div class="timeline-axis"></div><div style="text-align: center; padding: 2rem; color: #6b7280;">No evidence in this time period</div>';
+    timeline.innerHTML = '<div class="timeline-axis"></div><div style="text-align: center; padding: 2rem; color: #6b7280;">No footprints in this time period</div>';
     return;
   }
   
@@ -526,34 +526,34 @@ function renderTimeline(evidences: Evidence[]) {
     const tooltipElement = document.createElement('div');
     tooltipElement.className = 'timeline-tooltip';
     tooltipElement.style.left = `${x}px`;
-    
+
     if (point.count === 1) {
-      const evidence = point.evidences[0];
+      const footprint = point.footprints[0];
       tooltipElement.innerHTML = `
-        <div><strong>${evidence.conversationId}</strong></div>
-        <div>${evidence.llmProvider}</div>
-        <div>${point.count} evidence</div>
+        <div><strong>${footprint.conversationId}</strong></div>
+        <div>${footprint.llmProvider}</div>
+        <div>${point.count} footprint</div>
       `;
     } else {
       tooltipElement.innerHTML = `
-        <div><strong>${point.count} evidence items</strong></div>
+        <div><strong>${point.count} footprints</strong></div>
         <div>${pointDate.toLocaleDateString()}</div>
         <div>Click to view details</div>
       `;
     }
-    
+
     // Add hover events
     pointElement.addEventListener('mouseenter', () => {
       tooltipElement.style.display = 'block';
     });
-    
+
     pointElement.addEventListener('mouseleave', () => {
       tooltipElement.style.display = 'none';
     });
-    
+
     // Add click event to filter table
     pointElement.addEventListener('click', () => {
-      renderTable(point.evidences);
+      renderTable(point.footprints);
       
       // Visual feedback
       document.querySelectorAll('.timeline-point').forEach(p => p.style.boxShadow = '0 0 0 1px #e5e7eb');
@@ -567,8 +567,8 @@ function renderTimeline(evidences: Evidence[]) {
 }
 
 // Recent Activity Functions
-function getRecentEvidences(evidences: Evidence[], count: number = 5): Evidence[] {
-  return evidences
+function getRecentFootprints(footprints: Footprint[], count: number = 5): Footprint[] {
+  return footprints
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, count);
 }
@@ -606,59 +606,59 @@ function updateLastUpdatedDisplay() {
   }
 }
 
-function renderRecentActivity(evidences: Evidence[]) {
+function renderRecentActivity(footprints: Footprint[]) {
   const activityList = document.getElementById('activity-list');
   const activityBadge = document.getElementById('activity-badge');
-  
+
   if (!activityList || !activityBadge) return;
-  
-  const recentEvidences = getRecentEvidences(evidences);
-  
-  if (recentEvidences.length === 0) {
+
+  const recentFootprints = getRecentFootprints(footprints);
+
+  if (recentFootprints.length === 0) {
     activityList.innerHTML = `
       <li class="empty-activity">No recent activity</li>
     `;
     activityBadge.textContent = '0';
     return;
   }
-  
+
   // Calculate new items since last check
-  const newItemsCount = lastActivityCheck ? 
-    recentEvidences.filter(e => new Date(e.timestamp) > lastActivityCheck!).length : 0;
-  
+  const newItemsCount = lastActivityCheck ?
+    recentFootprints.filter(fp => new Date(fp.timestamp) > lastActivityCheck!).length : 0;
+
   // Update badge
-  activityBadge.textContent = recentEvidences.length.toString();
+  activityBadge.textContent = recentFootprints.length.toString();
   if (newItemsCount > 0) {
     activityBadge.classList.add('pulse');
     setTimeout(() => activityBadge.classList.remove('pulse'), 3000);
   }
-  
+
   // Render activity items
-  activityList.innerHTML = recentEvidences.map((evidence, index) => {
-    const isNewItem = lastActivityCheck && new Date(evidence.timestamp) > lastActivityCheck;
+  activityList.innerHTML = recentFootprints.map((footprint, index) => {
+    const isNewItem = lastActivityCheck && new Date(footprint.timestamp) > lastActivityCheck;
     return `
-      <li class="activity-item ${isNewItem ? 'new-item' : ''}" data-evidence-id="${evidence.id}">
+      <li class="activity-item ${isNewItem ? 'new-item' : ''}" data-footprint-id="${footprint.id}">
         <div class="activity-content">
-          <div class="activity-title-text">${evidence.conversationId || evidence.id.slice(0, 12)}</div>
+          <div class="activity-title-text">${footprint.conversationId || footprint.id.slice(0, 12)}</div>
           <div class="activity-meta">
-            ${evidence.llmProvider} • ${evidence.tags?.join(', ') || 'No tags'}
+            ${footprint.llmProvider} • ${footprint.tags?.join(', ') || 'No tags'}
           </div>
         </div>
-        <div class="activity-time">${formatRelativeTime(evidence.timestamp)}</div>
+        <div class="activity-time">${formatRelativeTime(footprint.timestamp)}</div>
       </li>
     `;
   }).join('');
-  
+
   // Add click handlers for activity items
   activityList.querySelectorAll('.activity-item').forEach(item => {
     item.addEventListener('click', () => {
-      const evidenceId = item.getAttribute('data-evidence-id');
-      if (evidenceId) {
-        // Scroll to evidence in table and highlight it
-        const tableRows = document.querySelectorAll('#evidence-table tbody tr');
+      const footprintId = item.getAttribute('data-footprint-id');
+      if (footprintId) {
+        // Scroll to footprint in table and highlight it
+        const tableRows = document.querySelectorAll('#footprint-table tbody tr');
         tableRows.forEach(row => {
           const cellText = row.firstElementChild?.textContent || '';
-          if (cellText.includes(evidenceId.slice(0, 8))) {
+          if (cellText.includes(footprintId.slice(0, 8))) {
             row.scrollIntoView({ behavior: 'smooth', block: 'center' });
             row.style.backgroundColor = '#eff6ff';
             setTimeout(() => {
@@ -669,52 +669,52 @@ function renderRecentActivity(evidences: Evidence[]) {
       }
     });
   });
-  
+
   updateLastUpdatedDisplay();
 }
 
 // Real-time update functionality
 async function refreshData() {
   try {
-    // Call the list-evidences tool to get fresh data
+    // Call the list-footprints tool to get fresh data
     const result = await app.callServerTool({
-      name: "list-evidences",
+      name: "list-footprints",
       arguments: { limit: 100, offset: 0 }
     });
-    
+
     if (result && result.content) {
       const textContent = result.content.find(c => c.type === "text")?.text;
       if (textContent) {
         const data: DashboardData = JSON.parse(textContent);
-        
-        // Check for new evidence since last update
-        if (lastDashboardData && data.evidences) {
-          const newEvidences = data.evidences.filter(newEvidence => {
-            return !lastDashboardData!.evidences.some(oldEvidence => 
-              oldEvidence.id === newEvidence.id
+
+        // Check for new footprints since last update
+        if (lastDashboardData && data.footprints) {
+          const newFootprints = data.footprints.filter(newFootprint => {
+            return !lastDashboardData!.footprints.some(oldFootprint =>
+              oldFootprint.id === newFootprint.id
             );
           });
-          
-          if (newEvidences.length > 0) {
-            console.log(`Found ${newEvidences.length} new evidence items`);
-            // Show notification or visual indicator for new evidence
-            showNewEvidenceNotification(newEvidences.length);
+
+          if (newFootprints.length > 0) {
+            console.log(`Found ${newFootprints.length} new footprints`);
+            // Show notification or visual indicator for new footprints
+            showNewFootprintNotification(newFootprints.length);
           }
         }
-        
+
         lastDashboardData = data;
-        
-        if (data.evidences) {
-          renderTable(data.evidences);
-          renderTimeline(data.evidences);
-          renderRecentActivity(data.evidences);
+
+        if (data.footprints) {
+          renderTable(data.footprints);
+          renderTimeline(data.footprints);
+          renderRecentActivity(data.footprints);
           updateStats(data);
         }
-        
+
         lastActivityCheck = new Date();
       }
     }
-    
+
     isConnected = true;
   } catch (error) {
     console.error("Failed to refresh data:", error);
@@ -723,7 +723,7 @@ async function refreshData() {
   }
 }
 
-function showNewEvidenceNotification(count: number) {
+function showNewFootprintNotification(count: number) {
   // Create a temporary notification
   const notification = document.createElement('div');
   notification.style.cssText = `
@@ -738,10 +738,10 @@ function showNewEvidenceNotification(count: number) {
     z-index: 1000;
     animation: slideIn 0.3s ease-out;
   `;
-  notification.textContent = `${count} new evidence item${count > 1 ? 's' : ''} captured!`;
-  
+  notification.textContent = `${count} new footprint${count > 1 ? 's' : ''} captured!`;
+
   document.body.appendChild(notification);
-  
+
   setTimeout(() => {
     notification.style.animation = 'slideIn 0.3s ease-out reverse';
     setTimeout(() => notification.remove(), 300);
@@ -771,14 +771,14 @@ function updateSelectionCounter() {
   const counter = document.getElementById('selection-counter');
   const exportBtn = document.getElementById('export-selected-btn') as HTMLButtonElement;
   const deleteBtn = document.getElementById('delete-selected-btn') as HTMLButtonElement;
-  
+
   if (counter) {
-    const count = selectedEvidenceIds.size;
+    const count = selectedFootprintIds.size;
     counter.textContent = `${count} selected`;
   }
-  
+
   // Enable/disable batch action buttons
-  const hasSelection = selectedEvidenceIds.size > 0;
+  const hasSelection = selectedFootprintIds.size > 0;
   if (exportBtn) exportBtn.disabled = !hasSelection;
   if (deleteBtn) deleteBtn.disabled = !hasSelection;
 }
@@ -786,11 +786,11 @@ function updateSelectionCounter() {
 function updateSelectAllCheckbox() {
   const selectAllCheckbox = document.getElementById('select-all-checkbox') as HTMLInputElement;
   if (!selectAllCheckbox) return;
-  
-  const evidenceCheckboxes = document.querySelectorAll('.evidence-checkbox') as NodeListOf<HTMLInputElement>;
-  const totalCheckboxes = evidenceCheckboxes.length;
-  const checkedCheckboxes = Array.from(evidenceCheckboxes).filter(cb => cb.checked).length;
-  
+
+  const footprintCheckboxes = document.querySelectorAll('.footprint-checkbox') as NodeListOf<HTMLInputElement>;
+  const totalCheckboxes = footprintCheckboxes.length;
+  const checkedCheckboxes = Array.from(footprintCheckboxes).filter(cb => cb.checked).length;
+
   if (checkedCheckboxes === 0) {
     selectAllCheckbox.checked = false;
     selectAllCheckbox.indeterminate = false;
@@ -803,20 +803,20 @@ function updateSelectAllCheckbox() {
   }
 }
 
-function setupEvidenceCheckboxes() {
-  const evidenceCheckboxes = document.querySelectorAll('.evidence-checkbox');
-  
-  evidenceCheckboxes.forEach(checkbox => {
+function setupFootprintCheckboxes() {
+  const footprintCheckboxes = document.querySelectorAll('.footprint-checkbox');
+
+  footprintCheckboxes.forEach(checkbox => {
     checkbox.addEventListener('change', (e) => {
       const target = e.target as HTMLInputElement;
-      const evidenceId = target.value;
-      
+      const footprintId = target.value;
+
       if (target.checked) {
-        selectedEvidenceIds.add(evidenceId);
+        selectedFootprintIds.add(footprintId);
       } else {
-        selectedEvidenceIds.delete(evidenceId);
+        selectedFootprintIds.delete(footprintId);
       }
-      
+
       updateSelectionCounter();
       updateSelectAllCheckbox();
     });
@@ -825,66 +825,66 @@ function setupEvidenceCheckboxes() {
 
 function setupSelectAllCheckbox() {
   const selectAllCheckbox = document.getElementById('select-all-checkbox');
-  
+
   selectAllCheckbox?.addEventListener('change', (e) => {
     const target = e.target as HTMLInputElement;
-    const evidenceCheckboxes = document.querySelectorAll('.evidence-checkbox') as NodeListOf<HTMLInputElement>;
-    
-    selectedEvidenceIds.clear();
-    
-    evidenceCheckboxes.forEach(checkbox => {
+    const footprintCheckboxes = document.querySelectorAll('.footprint-checkbox') as NodeListOf<HTMLInputElement>;
+
+    selectedFootprintIds.clear();
+
+    footprintCheckboxes.forEach(checkbox => {
       checkbox.checked = target.checked;
       if (target.checked) {
-        selectedEvidenceIds.add(checkbox.value);
+        selectedFootprintIds.add(checkbox.value);
       }
     });
-    
+
     updateSelectionCounter();
   });
 }
 
-async function exportSelectedEvidences() {
-  if (selectedEvidenceIds.size === 0) {
-    alert('Please select evidences to export');
+async function exportSelectedFootprints() {
+  if (selectedFootprintIds.size === 0) {
+    alert('Please select footprints to export');
     return;
   }
-  
+
   const exportBtn = document.getElementById('export-selected-btn') as HTMLButtonElement;
   const originalText = exportBtn.textContent;
-  
+
   try {
     exportBtn.disabled = true;
     exportBtn.textContent = '📤 Exporting...';
-    
-    // Call the export-evidences tool with selected IDs
-    const selectedIds = Array.from(selectedEvidenceIds);
-    console.log('Exporting evidences:', selectedIds);
-    
+
+    // Call the export-footprints tool with selected IDs
+    const selectedIds = Array.from(selectedFootprintIds);
+    console.log('Exporting footprints:', selectedIds);
+
     const result = await app.callServerTool({
-      name: 'export-evidences',
-      arguments: { evidenceIds: selectedIds }
+      name: 'export-footprints',
+      arguments: { ids: selectedIds }
     });
-    
+
     console.log('Export result:', result);
-    
+
     // Handle the export result
     if (result.isError) {
       throw new Error(result.content?.find(c => c.type === "text")?.text || 'Export failed');
     }
-    
+
     const textContent = result.content?.find(c => c.type === "text")?.text;
     if (textContent) {
       try {
         const exportData = JSON.parse(textContent);
         if (exportData.success) {
-          alert(`Successfully exported ${selectedIds.length} evidences`);
+          alert(`Successfully exported ${selectedIds.length} footprints`);
           // Clear selection after successful export
-          selectedEvidenceIds.clear();
+          selectedFootprintIds.clear();
           updateSelectionCounter();
           updateSelectAllCheckbox();
-          
+
           // Uncheck all checkboxes
-          const checkboxes = document.querySelectorAll('.evidence-checkbox') as NodeListOf<HTMLInputElement>;
+          const checkboxes = document.querySelectorAll('.footprint-checkbox') as NodeListOf<HTMLInputElement>;
           checkboxes.forEach(cb => cb.checked = false);
           const selectAllCheckbox = document.getElementById('select-all-checkbox') as HTMLInputElement;
           if (selectAllCheckbox) selectAllCheckbox.checked = false;
@@ -896,7 +896,7 @@ async function exportSelectedEvidences() {
         alert('Export completed but result format was unexpected');
       }
     }
-    
+
   } catch (error) {
     console.error('Export failed:', error);
     alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -906,60 +906,60 @@ async function exportSelectedEvidences() {
   }
 }
 
-async function deleteSelectedEvidences() {
-  if (selectedEvidenceIds.size === 0) {
-    alert('Please select evidences to delete');
+async function deleteSelectedFootprints() {
+  if (selectedFootprintIds.size === 0) {
+    alert('Please select footprints to delete');
     return;
   }
-  
-  const selectedIds = Array.from(selectedEvidenceIds);
-  if (!confirm(`Are you sure you want to delete ${selectedIds.length} evidence item(s)? This action cannot be undone.`)) {
+
+  const selectedIds = Array.from(selectedFootprintIds);
+  if (!confirm(`Are you sure you want to delete ${selectedIds.length} footprint(s)? This action cannot be undone.`)) {
     return;
   }
-  
+
   const deleteBtn = document.getElementById('delete-selected-btn') as HTMLButtonElement;
   const originalText = deleteBtn.textContent;
-  
+
   try {
     deleteBtn.disabled = true;
     deleteBtn.textContent = '🗑️ Deleting...';
-    
-    console.log('Deleting evidences:', selectedIds);
-    
+
+    console.log('Deleting footprints:', selectedIds);
+
     const result = await app.callServerTool({
-      name: 'delete-evidences',
-      arguments: { evidenceIds: selectedIds }
+      name: 'delete-footprints',
+      arguments: { ids: selectedIds }
     });
-    
+
     console.log('Delete result:', result);
-    
+
     if (result.isError) {
       throw new Error(result.content?.find(c => c.type === "text")?.text || 'Delete failed');
     }
-    
+
     // Parse structured content or text content
     const structuredContent = result.structuredContent as { deletedCount: number; success: boolean } | undefined;
-    
+
     if (structuredContent?.success) {
-      alert(`Successfully deleted ${structuredContent.deletedCount} evidence(s)`);
-      
+      alert(`Successfully deleted ${structuredContent.deletedCount} footprint(s)`);
+
       // Clear selection
-      selectedEvidenceIds.clear();
+      selectedFootprintIds.clear();
       updateSelectionCounter();
       updateSelectAllCheckbox();
-      
+
       // Uncheck all checkboxes
-      const checkboxes = document.querySelectorAll('.evidence-checkbox') as NodeListOf<HTMLInputElement>;
+      const checkboxes = document.querySelectorAll('.footprint-checkbox') as NodeListOf<HTMLInputElement>;
       checkboxes.forEach(cb => cb.checked = false);
       const selectAllCheckbox = document.getElementById('select-all-checkbox') as HTMLInputElement;
       if (selectAllCheckbox) selectAllCheckbox.checked = false;
-      
+
       // Refresh data
       await refreshData();
     } else {
       throw new Error('Delete operation did not succeed');
     }
-    
+
   } catch (error) {
     console.error('Delete failed:', error);
     alert(`Delete failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -972,37 +972,37 @@ async function deleteSelectedEvidences() {
 function setupBatchOperations() {
   const exportBtn = document.getElementById('export-selected-btn');
   const deleteBtn = document.getElementById('delete-selected-btn');
-  
-  exportBtn?.addEventListener('click', exportSelectedEvidences);
-  deleteBtn?.addEventListener('click', deleteSelectedEvidences);
+
+  exportBtn?.addEventListener('click', exportSelectedFootprints);
+  deleteBtn?.addEventListener('click', deleteSelectedFootprints);
 }
 
 // Handle tool results from the MCP server
 app.ontoolresult = (result) => {
   console.log("Received tool result:", result);
-  
+
   try {
     const textContent = result.content?.find(c => c.type === "text")?.text;
     if (!textContent) {
       console.warn("No text content in tool result");
       return;
     }
-    
+
     const data: DashboardData = JSON.parse(textContent);
     console.log("Parsed data:", data);
-    
+
     lastDashboardData = data;
-    
-    if (data.evidences) {
-      allEvidences = data.evidences;
+
+    if (data.footprints) {
+      allFootprints = data.footprints;
       updateView();
-      renderRecentActivity(data.evidences);
+      renderRecentActivity(data.footprints);
     } else {
-      console.warn("No evidences array in parsed data");
+      console.warn("No footprints array in parsed data");
     }
   } catch (e) {
     console.error("Failed to parse tool result:", e);
-    const tbody = document.querySelector("#evidence-table tbody");
+    const tbody = document.querySelector("#footprint-table tbody");
     if (tbody) {
       tbody.innerHTML = `
         <tr>
@@ -1016,11 +1016,11 @@ app.ontoolresult = (result) => {
 // Handle resource updates (real-time updates from the server)
 app.onresourceupdate = (update) => {
   console.log("Received resource update:", update);
-  
+
   try {
-    // Check if this is evidence-related data
-    if (update.uri && update.uri.includes('evidence')) {
-      console.log("Evidence data updated, refreshing dashboard...");
+    // Check if this is footprint-related data
+    if (update.uri && update.uri.includes('footprint')) {
+      console.log("Footprint data updated, refreshing dashboard...");
       refreshData();
     }
   } catch (error) {
@@ -1031,17 +1031,17 @@ app.onresourceupdate = (update) => {
 // Set up timeline controls
 function setupTimelineControls() {
   const timelineButtons = document.querySelectorAll('.timeline-btn');
-  
+
   timelineButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       // Update active state
       timelineButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      
+
       // Re-render timeline with new period
-      if (allEvidences.length > 0) {
-        const filteredEvidences = filterEvidences(allEvidences);
-        renderTimeline(filteredEvidences);
+      if (allFootprints.length > 0) {
+        const filteredFootprints = filterFootprints(allFootprints);
+        renderTimeline(filteredFootprints);
       }
     });
   });

@@ -9,7 +9,7 @@ export const listFootprintsSchema = {
     offset: z.number().int().min(0).optional().describe("Pagination offset"),
   },
   outputSchema: {
-    evidences: z.array(
+    footprints: z.array(
       z.object({
         id: z.string(),
         timestamp: z.string(),
@@ -45,27 +45,27 @@ export function createListFootprintsHandler(db: EvidenceDatabase) {
         throw new Error("Offset cannot be negative");
       }
 
-      const evidences = db.list({
+      const footprints = db.list({
         limit: params.limit,
         offset: params.offset,
       });
-      const mappedEvidences = evidences.map((e) => ({
-        id: e.id,
-        timestamp: e.timestamp,
-        conversationId: e.conversationId,
-        llmProvider: e.llmProvider,
-        messageCount: e.messageCount,
-        tags: e.tags,
+      const mappedFootprints = footprints.map((fp) => ({
+        id: fp.id,
+        timestamp: fp.timestamp,
+        conversationId: fp.conversationId,
+        llmProvider: fp.llmProvider,
+        messageCount: fp.messageCount,
+        tags: fp.tags,
       }));
 
       return formatSuccessResponse(
         "Footprint list retrieved successfully",
         {
-          Count: `${evidences.length} footprint(s)`,
+          Count: `${footprints.length} footprint(s)`,
           Limit: params.limit || "No limit",
           Offset: params.offset || 0,
         },
-        { evidences: mappedEvidences, total: evidences.length },
+        { footprints: mappedFootprints, total: footprints.length },
       );
     },
   );

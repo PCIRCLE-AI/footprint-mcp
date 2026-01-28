@@ -16,7 +16,7 @@ export const searchFootprintsSchema = {
     offset: z.number().int().min(0).optional().describe("Pagination offset"),
   },
   outputSchema: {
-    evidences: z.array(
+    footprints: z.array(
       z.object({
         id: z.string(),
         timestamp: z.string(),
@@ -69,7 +69,7 @@ export function createSearchFootprintsHandler(db: EvidenceDatabase) {
         }
       }
 
-      const evidences = db.search({
+      const footprints = db.search({
         query: params.query,
         tags: params.tags,
         dateFrom: params.dateFrom,
@@ -78,24 +78,24 @@ export function createSearchFootprintsHandler(db: EvidenceDatabase) {
         offset: params.offset,
       });
 
-      const mappedEvidences = evidences.map((e) => ({
-        id: e.id,
-        timestamp: e.timestamp,
-        conversationId: e.conversationId,
-        llmProvider: e.llmProvider,
-        messageCount: e.messageCount,
-        tags: e.tags,
+      const mappedFootprints = footprints.map((fp) => ({
+        id: fp.id,
+        timestamp: fp.timestamp,
+        conversationId: fp.conversationId,
+        llmProvider: fp.llmProvider,
+        messageCount: fp.messageCount,
+        tags: fp.tags,
       }));
 
       return formatSuccessResponse(
         "Search completed successfully",
         {
-          Results: `${evidences.length} footprint(s) found`,
+          Results: `${footprints.length} footprint(s) found`,
           Query: params.query || "None",
           Tags: params.tags?.join(", ") || "None",
           "Date Range": `${params.dateFrom || "Start"} to ${params.dateTo || "End"}`,
         },
-        { evidences: mappedEvidences, total: evidences.length },
+        { footprints: mappedFootprints, total: footprints.length },
       );
     },
   );
