@@ -1,5 +1,6 @@
-import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { randomBytes } from '@noble/hashes/utils';
+/* global TextEncoder */
+import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
+import { randomBytes } from "@noble/hashes/utils.js";
 
 export interface EncryptedData {
   ciphertext: Uint8Array;
@@ -15,7 +16,7 @@ export interface EncryptedData {
  */
 export function encrypt(plaintext: string, key: Uint8Array): EncryptedData {
   if (key.length !== 32) {
-    throw new Error('Key must be 32 bytes');
+    throw new Error("Key must be 32 bytes");
   }
 
   // Generate random 24-byte nonce (XChaCha20 extended nonce)
@@ -29,6 +30,9 @@ export function encrypt(plaintext: string, key: Uint8Array): EncryptedData {
 
   // Encrypt with authentication
   const ciphertext = cipher.encrypt(plaintextBytes);
+
+  // Zero plaintext bytes from memory (defense-in-depth)
+  plaintextBytes.fill(0);
 
   return { ciphertext, nonce };
 }

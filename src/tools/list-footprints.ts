@@ -5,8 +5,18 @@ import type { EvidenceDatabase } from "../lib/storage/index.js";
 
 export const listFootprintsSchema = {
   inputSchema: {
-    limit: z.number().int().positive().optional().describe("Maximum results"),
-    offset: z.number().int().min(0).optional().describe("Pagination offset"),
+    limit: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Maximum number of results to return per page"),
+    offset: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe("Number of results to skip for pagination (0-based)"),
   },
   outputSchema: {
     footprints: z.array(
@@ -25,7 +35,8 @@ export const listFootprintsSchema = {
 
 export const listFootprintsMetadata = {
   title: "List Footprints",
-  description: "List all captured footprint with pagination",
+  description:
+    "List all captured footprints with pagination. Returns metadata only (IDs, timestamps, tags, message counts) — use get-footprint to retrieve full decrypted content. Use search-footprints for filtered queries.",
   _meta: {
     ui: {
       resourceUri: "ui://footprint/dashboard.html",
@@ -45,27 +56,29 @@ export function createListFootprintsHandler(db: EvidenceDatabase) {
         throw new Error("Offset cannot be negative");
       }
 
-      const footprints = db.list({
+      const evidences = db.list({
         limit: params.limit,
         offset: params.offset,
       });
-      const mappedFootprints = footprints.map((fp) => ({
-        id: fp.id,
-        timestamp: fp.timestamp,
-        conversationId: fp.conversationId,
-        llmProvider: fp.llmProvider,
-        messageCount: fp.messageCount,
-        tags: fp.tags,
+      const mappedEvidences = evidences.map((e) => ({
+        id: e.id,
+        timestamp: e.timestamp,
+        conversationId: e.conversationId,
+        llmProvider: e.llmProvider,
+        messageCount: e.messageCount,
+        tags: e.tags,
       }));
+
+      const total = db.getTotalCount();
 
       return formatSuccessResponse(
         "Footprint list retrieved successfully",
         {
-          Count: `${footprints.length} footprint(s)`,
-          Limit: params.limit || "No limit",
-          Offset: params.offset || 0,
+          Count: `${evidences.length} footprint(s)`,
+          Limit: params.limit ?? "No limit",
+          Offset: params.offset ?? 0,
         },
-        { footprints: mappedFootprints, total: footprints.length },
+        { footprints: mappedEvidences, total },
       );
     },
   );

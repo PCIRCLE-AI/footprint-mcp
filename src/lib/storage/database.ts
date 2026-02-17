@@ -1,6 +1,11 @@
-import Database from 'better-sqlite3';
-import { createSchema } from './schema.js';
-import type { Evidence } from './types.js';
+/* global Buffer, crypto */
+import Database from "better-sqlite3";
+import { createSchema } from "./schema.js";
+import type { Evidence } from "./types.js";
+
+function escapeLikePattern(pattern: string): string {
+  return pattern.replace(/[%_\\]/g, "\\$&");
+}
 
 /**
  * Database row structure (matches SQLite table schema)
@@ -40,7 +45,9 @@ export class EvidenceDatabase {
     } catch (error) {
       // Clean up database connection on any initialization failure
       this.db.close();
-      throw new Error(`Failed to initialize database: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to initialize database: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -49,7 +56,7 @@ export class EvidenceDatabase {
    * @param evidence - Evidence data without id, createdAt, updatedAt
    * @returns UUID of created evidence
    */
-  create(evidence: Omit<Evidence, 'id' | 'createdAt' | 'updatedAt'>): string {
+  create(evidence: Omit<Evidence, "id" | "createdAt" | "updatedAt">): string {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
@@ -75,12 +82,14 @@ export class EvidenceDatabase {
         evidence.gitTimestamp,
         evidence.tags,
         now,
-        now
+        now,
       );
 
       return id;
     } catch (error) {
-      throw new Error(`Failed to create evidence: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to create footprint: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -103,7 +112,9 @@ export class EvidenceDatabase {
       return this.rowToEvidence(row);
     } catch (error) {
       // Don't swallow database errors - re-throw with context
-      throw new Error(`Failed to find evidence by ID: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to find footprint by ID: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -124,7 +135,7 @@ export class EvidenceDatabase {
       return rows.map((row) => this.rowToEvidence(row));
     } catch (error) {
       throw new Error(
-        `Failed to find evidences by conversationId: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to find footprints by conversationId: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -139,18 +150,18 @@ export class EvidenceDatabase {
       const limit = options?.limit;
       const offset = options?.offset ?? 0;
 
-      let query = 'SELECT * FROM evidences ORDER BY timestamp DESC';
+      let query = "SELECT * FROM evidences ORDER BY timestamp DESC";
       const params: number[] = [];
 
       if (limit !== undefined) {
-        query += ' LIMIT ?';
+        query += " LIMIT ?";
         params.push(limit);
         if (offset > 0) {
-          query += ' OFFSET ?';
+          query += " OFFSET ?";
           params.push(offset);
         }
       } else if (offset > 0) {
-        query += ' LIMIT -1 OFFSET ?';
+        query += " LIMIT -1 OFFSET ?";
         params.push(offset);
       }
 
@@ -158,7 +169,9 @@ export class EvidenceDatabase {
       const rows = stmt.all(...params) as EvidenceRow[];
       return rows.map((row) => this.rowToEvidence(row));
     } catch (error) {
-      throw new Error(`Failed to list evidences: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to list footprints: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -178,13 +191,20 @@ export class EvidenceDatabase {
         WHERE id = ?
       `);
 
-      const result = stmt.run(gitCommitHash, gitTimestamp, new Date().toISOString(), id);
+      const result = stmt.run(
+        gitCommitHash,
+        gitTimestamp,
+        new Date().toISOString(),
+        id,
+      );
 
       if (result.changes === 0) {
-        throw new Error(`Evidence with id ${id} not found`);
+        throw new Error(`Footprint with id ${id} not found`);
       }
     } catch (error) {
-      throw new Error(`Failed to update git info: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to update git info: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -197,40 +217,180 @@ export class EvidenceDatabase {
   addTags(id: string, tags: string[]): void {
     try {
       if (tags.length === 0) {
-        throw new Error('Tags array cannot be empty');
+        throw new Error("Tags array cannot be empty");
       }
 
       // Filter out empty/whitespace-only tags
-      const validTags = tags.map(t => t.trim()).filter(t => t.length > 0);
+      const validTags = tags.map((t) => t.trim()).filter((t) => t.length > 0);
       if (validTags.length === 0) {
-        throw new Error('All provided tags are empty or whitespace');
+        throw new Error("All provided tags are empty or whitespace");
       }
 
-      // First, get existing tags
-      const evidence = this.findById(id);
-      if (!evidence) {
-        throw new Error(`Evidence with id ${id} not found`);
-      }
+      // Wrap in transaction to prevent read-modify-write race condition
+      const transaction = this.db.transaction(() => {
+        const evidence = this.findById(id);
+        if (!evidence) {
+          throw new Error(`Footprint with id ${id} not found`);
+        }
 
-      // Parse existing tags (comma-separated) or create empty array
-      const existingTags = evidence.tags
-        ? evidence.tags.split(',').map(t => t.trim()).filter(t => t)
-        : [];
+        // Parse existing tags (comma-separated) or create empty array
+        const existingTags = evidence.tags
+          ? evidence.tags
+              .split(",")
+              .map((t) => t.trim())
+              .filter((t) => t)
+          : [];
 
-      // Merge tags (deduplicate) using validTags instead of raw tags
-      const mergedTags = [...new Set([...existingTags, ...validTags])];
+        // Merge tags (deduplicate) using validTags instead of raw tags
+        const mergedTags = [...new Set([...existingTags, ...validTags])];
 
-      // Update database with comma-separated format
-      const stmt = this.db.prepare(`
-        UPDATE evidences
-        SET tags = ?,
-            updatedAt = ?
-        WHERE id = ?
-      `);
+        // Update database with comma-separated format
+        const stmt = this.db.prepare(`
+          UPDATE evidences
+          SET tags = ?,
+              updatedAt = ?
+          WHERE id = ?
+        `);
 
-      stmt.run(mergedTags.join(','), new Date().toISOString(), id);
+        stmt.run(mergedTags.join(","), new Date().toISOString(), id);
+      });
+
+      transaction();
     } catch (error) {
-      throw new Error(`Failed to add tags: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to add tags: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Builds a WHERE clause from search/filter options
+   * @param options - Filter criteria
+   * @returns SQL WHERE clause string and parameter values
+   */
+  private buildWhereClause(options: {
+    query?: string;
+    tags?: string[];
+    dateFrom?: string;
+    dateTo?: string;
+  }): { sql: string; params: (string | number)[] } {
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (options.query && options.query.trim()) {
+      conditions.push(
+        `(conversationId LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\')`,
+      );
+      const searchPattern = `%${escapeLikePattern(options.query.trim())}%`;
+      params.push(searchPattern, searchPattern);
+    }
+
+    if (options.tags && options.tags.length > 0) {
+      for (const tag of options.tags) {
+        conditions.push(
+          `(tags LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\' OR tags = ?)`,
+        );
+        const trimmedTag = escapeLikePattern(tag.trim());
+        params.push(
+          `${trimmedTag},%`,
+          `%,${trimmedTag},%`,
+          `%,${trimmedTag}`,
+          tag.trim(),
+        );
+      }
+    }
+
+    if (options.dateFrom) {
+      conditions.push(`timestamp >= ?`);
+      params.push(options.dateFrom);
+    }
+    if (options.dateTo) {
+      conditions.push(`timestamp <= ?`);
+      params.push(options.dateTo);
+    }
+
+    const sql =
+      conditions.length > 0 ? " WHERE " + conditions.join(" AND ") : "";
+    return { sql, params };
+  }
+
+  /**
+   * Gets count of evidences matching filter criteria
+   * @param options - Filter criteria (query, tags, date range)
+   * @returns Number of matching evidences
+   */
+  getFilteredCount(options: {
+    query?: string;
+    tags?: string[];
+    dateFrom?: string;
+    dateTo?: string;
+  }): number {
+    try {
+      const { sql: whereClause, params } = this.buildWhereClause(options);
+      const row = this.db
+        .prepare(`SELECT COUNT(*) as count FROM evidences${whereClause}`)
+        .get(...params) as { count: number };
+      return row.count;
+    } catch (error) {
+      throw new Error(
+        `Failed to get filtered count: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Search evidences and return both paginated results and total matching count
+   * in a single pass (builds WHERE clause once instead of twice)
+   */
+  searchWithCount(options: {
+    query?: string;
+    tags?: string[];
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }): { evidences: Evidence[]; total: number } {
+    try {
+      const { limit, offset = 0 } = options;
+      const { sql: whereClause, params: baseParams } =
+        this.buildWhereClause(options);
+
+      // Wrap both queries in a transaction for consistent snapshot
+      const query = this.db.transaction(() => {
+        // Get total count with same WHERE clause
+        const countRow = this.db
+          .prepare(`SELECT COUNT(*) as count FROM evidences${whereClause}`)
+          .get(...baseParams) as { count: number };
+
+        // Build paginated query (clone params since we append to it)
+        const searchParams = [...baseParams];
+        let sql = `SELECT * FROM evidences${whereClause} ORDER BY timestamp DESC`;
+
+        if (limit !== undefined) {
+          sql += " LIMIT ?";
+          searchParams.push(limit);
+          if (offset > 0) {
+            sql += " OFFSET ?";
+            searchParams.push(offset);
+          }
+        } else if (offset > 0) {
+          sql += " LIMIT -1 OFFSET ?";
+          searchParams.push(offset);
+        }
+
+        const rows = this.db.prepare(sql).all(...searchParams) as EvidenceRow[];
+
+        return {
+          evidences: rows.map((row) => this.rowToEvidence(row)),
+          total: countRow.count,
+        };
+      });
+
+      return query();
+    } catch (error) {
+      throw new Error(
+        `Failed to search footprints: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -240,70 +400,31 @@ export class EvidenceDatabase {
    * @returns Array of matching evidences
    */
   search(options: {
-    query?: string;      // Search in conversationId, tags
-    tags?: string[];     // Filter by tags (AND logic)
-    dateFrom?: string;   // ISO date string
-    dateTo?: string;     // ISO date string
+    query?: string; // Search in conversationId, tags
+    tags?: string[]; // Filter by tags (AND logic)
+    dateFrom?: string; // ISO date string
+    dateTo?: string; // ISO date string
     limit?: number;
     offset?: number;
   }): Evidence[] {
     try {
-      const { query, tags, dateFrom, dateTo, limit, offset = 0 } = options;
-      
-      // Build WHERE conditions
-      const conditions: string[] = [];
-      const params: (string | number)[] = [];
+      const { limit, offset = 0 } = options;
 
-      // Text search in conversationId and tags
-      if (query && query.trim()) {
-        conditions.push(`(conversationId LIKE ? OR tags LIKE ?)`);
-        const searchPattern = `%${query.trim()}%`;
-        params.push(searchPattern, searchPattern);
-      }
-
-      // Tag filtering (AND logic - all specified tags must be present)
-      // Tags are stored as comma-separated strings: "tag1,tag2,tag3"
-      if (tags && tags.length > 0) {
-        for (const tag of tags) {
-          // Match tag at start, middle, or end of comma-separated list
-          conditions.push(`(tags LIKE ? OR tags LIKE ? OR tags LIKE ? OR tags = ?)`);
-          const trimmedTag = tag.trim();
-          params.push(
-            `${trimmedTag},%`,      // tag at start: "tag1,..."
-            `%,${trimmedTag},%`,    // tag in middle: "...,tag1,..."
-            `%,${trimmedTag}`,      // tag at end: "...,tag1"
-            trimmedTag              // exact match (single tag)
-          );
-        }
-      }
-
-      // Date range filtering
-      if (dateFrom) {
-        conditions.push(`timestamp >= ?`);
-        params.push(dateFrom);
-      }
-      if (dateTo) {
-        conditions.push(`timestamp <= ?`);
-        params.push(dateTo);
-      }
+      const { sql: whereClause, params } = this.buildWhereClause(options);
 
       // Build final query
-      let sql = 'SELECT * FROM evidences';
-      if (conditions.length > 0) {
-        sql += ' WHERE ' + conditions.join(' AND ');
-      }
-      sql += ' ORDER BY timestamp DESC';
+      let sql = `SELECT * FROM evidences${whereClause} ORDER BY timestamp DESC`;
 
       // Add pagination
       if (limit !== undefined) {
-        sql += ' LIMIT ?';
+        sql += " LIMIT ?";
         params.push(limit);
         if (offset > 0) {
-          sql += ' OFFSET ?';
+          sql += " OFFSET ?";
           params.push(offset);
         }
       } else if (offset > 0) {
-        sql += ' LIMIT -1 OFFSET ?';
+        sql += " LIMIT -1 OFFSET ?";
         params.push(offset);
       }
 
@@ -311,7 +432,9 @@ export class EvidenceDatabase {
       const rows = stmt.all(...params) as EvidenceRow[];
       return rows.map((row) => this.rowToEvidence(row));
     } catch (error) {
-      throw new Error(`Failed to search evidences: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to search footprints: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -326,7 +449,9 @@ export class EvidenceDatabase {
       const result = stmt.run(id);
       return result.changes > 0;
     } catch (error) {
-      throw new Error(`Failed to delete evidence: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to delete footprint: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -337,14 +462,27 @@ export class EvidenceDatabase {
    */
   deleteMany(ids: string[]): number {
     if (ids.length === 0) return 0;
-    
+
     try {
-      const placeholders = ids.map(() => '?').join(',');
-      const stmt = this.db.prepare(`DELETE FROM evidences WHERE id IN (${placeholders})`);
-      const result = stmt.run(...ids);
-      return result.changes;
+      // Batch deletions to stay under SQLite's 999 parameter limit
+      const BATCH_SIZE = 999;
+      let totalDeleted = 0;
+
+      for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+        const batch = ids.slice(i, i + BATCH_SIZE);
+        const placeholders = batch.map(() => "?").join(",");
+        const stmt = this.db.prepare(
+          `DELETE FROM evidences WHERE id IN (${placeholders})`,
+        );
+        const result = stmt.run(...batch);
+        totalDeleted += result.changes;
+      }
+
+      return totalDeleted;
     } catch (error) {
-      throw new Error(`Failed to delete evidences: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to delete footprints: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -365,7 +503,9 @@ export class EvidenceDatabase {
       const result = stmt.run(tags, new Date().toISOString(), id);
       return result.changes > 0;
     } catch (error) {
-      throw new Error(`Failed to update tags: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to update tags: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -387,10 +527,10 @@ export class EvidenceDatabase {
         for (const evidence of evidences) {
           if (!evidence.tags) continue;
 
-          const tags = evidence.tags.split(',').map(t => t.trim());
-          const newTags = tags.map(t => t === oldTag ? newTag : t);
+          const tags = evidence.tags.split(",").map((t) => t.trim());
+          const newTags = tags.map((t) => (t === oldTag ? newTag : t));
 
-          if (this.updateTags(evidence.id, newTags.join(','))) {
+          if (this.updateTags(evidence.id, newTags.join(","))) {
             updatedCount++;
           }
         }
@@ -400,7 +540,9 @@ export class EvidenceDatabase {
 
       return transaction();
     } catch (error) {
-      throw new Error(`Failed to rename tag: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to rename tag: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -421,8 +563,11 @@ export class EvidenceDatabase {
         for (const evidence of evidences) {
           if (!evidence.tags) continue;
 
-          const tags = evidence.tags.split(',').map(t => t.trim()).filter(t => t !== tag);
-          const newTags = tags.length > 0 ? tags.join(',') : null;
+          const tags = evidence.tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter((t) => t !== tag);
+          const newTags = tags.length > 0 ? tags.join(",") : null;
 
           if (this.updateTags(evidence.id, newTags)) {
             updatedCount++;
@@ -434,7 +579,9 @@ export class EvidenceDatabase {
 
       return transaction();
     } catch (error) {
-      throw new Error(`Failed to remove tag: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to remove tag: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -444,21 +591,48 @@ export class EvidenceDatabase {
    */
   getTagCounts(): Map<string, number> {
     try {
-      const stmt = this.db.prepare(`SELECT tags FROM evidences WHERE tags IS NOT NULL AND tags != ''`);
+      const stmt = this.db.prepare(
+        `SELECT tags FROM evidences WHERE tags IS NOT NULL AND tags != ''`,
+      );
       const rows = stmt.all() as { tags: string }[];
-      
+
       const tagCounts = new Map<string, number>();
       for (const row of rows) {
-        const tags = row.tags.split(',').map(t => t.trim()).filter(t => t);
+        const tags = row.tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter((t) => t);
         for (const tag of tags) {
           tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
         }
       }
-      
+
       return tagCounts;
     } catch (error) {
-      throw new Error(`Failed to get tag counts: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Failed to get tag counts: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
+  }
+
+  /**
+   * Gets total count of all evidence records
+   * @returns Total number of evidences in the database
+   */
+  getTotalCount(): number {
+    const row = this.db
+      .prepare("SELECT COUNT(*) as count FROM evidences")
+      .get() as { count: number };
+    return row.count;
+  }
+
+  /**
+   * Gets count of evidence records matching a search query
+   * @param query - Search text to match against conversationId and tags
+   * @returns Number of matching evidences
+   */
+  getSearchCount(query: string): number {
+    return this.getFilteredCount({ query });
   }
 
   /**
@@ -499,7 +673,7 @@ export class EvidenceDatabase {
       gitTimestamp: row.gitTimestamp,
       tags: row.tags,
       createdAt: row.createdAt,
-      updatedAt: row.updatedAt
+      updatedAt: row.updatedAt,
     };
   }
 }

@@ -8,10 +8,27 @@ export const searchFootprintsSchema = {
     query: z
       .string()
       .optional()
-      .describe("Search text (matches conversationId, tags)"),
-    tags: z.array(z.string()).optional().describe("Filter by tags"),
-    dateFrom: z.string().optional().describe("Start date (ISO format)"),
-    dateTo: z.string().optional().describe("End date (ISO format)"),
+      .describe(
+        "Search text (matches conversationId and tags via LIKE). Combine with tags for precise filtering.",
+      ),
+    tags: z
+      .array(z.string())
+      .optional()
+      .describe(
+        "Filter by tags (AND logic — all specified tags must be present)",
+      ),
+    dateFrom: z
+      .string()
+      .optional()
+      .describe(
+        "Start date filter (ISO 8601 format, e.g., 2026-01-01T00:00:00Z)",
+      ),
+    dateTo: z
+      .string()
+      .optional()
+      .describe(
+        "End date filter (ISO 8601 format, e.g., 2026-12-31T23:59:59Z)",
+      ),
     limit: z.number().int().positive().optional().describe("Maximum results"),
     offset: z.number().int().min(0).optional().describe("Pagination offset"),
   },
@@ -32,7 +49,8 @@ export const searchFootprintsSchema = {
 
 export const searchFootprintsMetadata = {
   title: "Search Footprints",
-  description: "Search and filter footprints by query, tags, or date range",
+  description:
+    "Search and filter footprints by query, tags, or date range. Query matches conversationId and tags (LIKE). Tags filter uses AND logic — all specified tags must be present. Query + tags combined with AND. Returns paginated results with total matching count.",
 };
 
 export function createSearchFootprintsHandler(db: EvidenceDatabase) {
@@ -69,7 +87,15 @@ export function createSearchFootprintsHandler(db: EvidenceDatabase) {
         }
       }
 
-      const footprints = db.search({
+      // Cross-validate date range using parsed dates (handles timezone offsets correctly)
+      if (params.dateFrom && params.dateTo) {
+        if (new Date(params.dateFrom) > new Date(params.dateTo)) {
+          throw new Error("dateFrom must be before dateTo");
+        }
+      }
+
+      // Single combined query for results + count (avoids duplicate WHERE clause)
+      const { evidences, total } = db.searchWithCount({
         query: params.query,
         tags: params.tags,
         dateFrom: params.dateFrom,
@@ -78,24 +104,24 @@ export function createSearchFootprintsHandler(db: EvidenceDatabase) {
         offset: params.offset,
       });
 
-      const mappedFootprints = footprints.map((fp) => ({
-        id: fp.id,
-        timestamp: fp.timestamp,
-        conversationId: fp.conversationId,
-        llmProvider: fp.llmProvider,
-        messageCount: fp.messageCount,
-        tags: fp.tags,
+      const mappedEvidences = evidences.map((e) => ({
+        id: e.id,
+        timestamp: e.timestamp,
+        conversationId: e.conversationId,
+        llmProvider: e.llmProvider,
+        messageCount: e.messageCount,
+        tags: e.tags,
       }));
 
       return formatSuccessResponse(
         "Search completed successfully",
         {
-          Results: `${footprints.length} footprint(s) found`,
+          Results: `${evidences.length} footprint(s) found`,
           Query: params.query || "None",
           Tags: params.tags?.join(", ") || "None",
           "Date Range": `${params.dateFrom || "Start"} to ${params.dateTo || "End"}`,
         },
-        { footprints: mappedFootprints, total: footprints.length },
+        { footprints: mappedEvidences, total },
       );
     },
   );

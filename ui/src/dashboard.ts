@@ -277,8 +277,8 @@ async function editTag(oldTag: string) {
   if (newTag && newTag.trim() && newTag !== oldTag) {
     try {
       const result = await app.callServerTool({
-        name: 'rename-tag',
-        arguments: { oldTag, newTag: newTag.trim() }
+        name: 'manage-tags',
+        arguments: { action: 'rename', oldTag, newTag: newTag.trim() }
       });
 
       const structuredContent = result.structuredContent as { updatedCount: number; success: boolean } | undefined;
@@ -302,8 +302,8 @@ async function deleteTag(tag: string) {
   if (confirm(`Delete tag "${tag}" from all footprints? This cannot be undone.`)) {
     try {
       const result = await app.callServerTool({
-        name: 'remove-tag',
-        arguments: { tag }
+        name: 'manage-tags',
+        arguments: { action: 'remove', tag }
       });
 
       const structuredContent = result.structuredContent as { updatedCount: number; success: boolean } | undefined;

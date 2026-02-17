@@ -1,11 +1,10 @@
-import JSZip from 'jszip';
-import { createHash } from 'node:crypto';
-import type { EvidenceDatabase } from './database.js';
+import JSZip from "jszip";
+import { createHash, randomUUID } from "node:crypto";
+import type { EvidenceDatabase } from "./database.js";
 
 export interface ExportOptions {
-  ids?: string[]; // Specific IDs to export (or all)
+  evidenceIds?: string[]; // Specific IDs to export (or all)
   includeGitInfo?: boolean; // Include git-info.json
-  password?: string; // Optional password protection (not implemented yet)
 }
 
 export interface ExportResult {
@@ -23,7 +22,7 @@ interface ManifestData {
 }
 
 // Export format version constant
-const EXPORT_FORMAT_VERSION = '1.0.0';
+const EXPORT_FORMAT_VERSION = "1.0.0";
 
 // Maximum export size in MB (configurable limit to prevent OOM)
 const MAX_EXPORT_SIZE_MB = 100;
@@ -42,41 +41,50 @@ const MAX_EXPORT_SIZE_MB = 100;
  */
 export async function exportEvidences(
   db: EvidenceDatabase,
-  options: ExportOptions = {}
+  options: ExportOptions = {},
 ): Promise<ExportResult> {
   try {
-    const { ids, includeGitInfo = false } = options;
+    const { evidenceIds, includeGitInfo = false } = options;
 
-    // Get footprints to export - validate IDs if specified
-    let footprints;
-    if (ids) {
-      // Validate all IDs exist first
-      const notFound = ids.filter(id => !db.findById(id));
-      if (notFound.length > 0) {
-        throw new Error(`Footprint IDs not found: ${notFound.join(', ')}`);
-      }
-      // Map with proper error handling (should never throw after validation above)
-      footprints = ids.map(id => {
-        const footprint = db.findById(id);
-        if (!footprint) {
-          throw new Error(`Footprint ${id} not found`);
+    // Get evidences to export - validate IDs if specified
+    let evidences;
+    if (evidenceIds) {
+      // Single-pass: collect evidences and track missing IDs
+      const notFound: string[] = [];
+      const found: NonNullable<ReturnType<typeof db.findById>>[] = [];
+      for (const id of evidenceIds) {
+        const evidence = db.findById(id);
+        if (evidence) {
+          found.push(evidence);
+        } else {
+          notFound.push(id);
         }
-        return footprint;
-      });
+      }
+      if (notFound.length > 0) {
+        throw new Error(`Footprint IDs not found: ${notFound.join(", ")}`);
+      }
+      evidences = found;
     } else {
-      footprints = db.list();
+      // Check record count before loading all into memory
+      const totalCount = db.getTotalCount();
+      if (totalCount > 10000) {
+        throw new Error(
+          `Too many footprints to export at once (${totalCount}). ` +
+            `Please use evidenceIds to export in batches of up to 10,000.`,
+        );
+      }
+      evidences = db.list();
     }
 
     // Validate export size to prevent OOM crashes
-    const estimatedSizeMB = footprints.reduce(
-      (sum, e) => sum + e.encryptedContent.length,
-      0
-    ) / (1024 * 1024);
+    const estimatedSizeMB =
+      evidences.reduce((sum, e) => sum + e.encryptedContent.length, 0) /
+      (1024 * 1024);
 
     if (estimatedSizeMB > MAX_EXPORT_SIZE_MB) {
       throw new Error(
         `Export size (${estimatedSizeMB.toFixed(1)}MB) exceeds limit (${MAX_EXPORT_SIZE_MB}MB). ` +
-        `Please export in smaller batches using the ids parameter.`
+          `Please export in smaller batches using the evidenceIds parameter.`,
       );
     }
 
@@ -87,93 +95,96 @@ export async function exportEvidences(
     const manifest: ManifestData = {
       version: EXPORT_FORMAT_VERSION,
       exportDate: new Date().toISOString(),
-      footprintCount: footprints.length,
+      footprintCount: evidences.length,
       includeGitInfo,
     };
-    zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+    zip.file("manifest.json", JSON.stringify(manifest, null, 2));
 
-    // Add each footprint
+    // Add each evidence
     const checksumEntries: string[] = [];
 
-    for (const fp of footprints) {
-      const fpFolder = `footprints/${fp.id}`;
+    for (const evidence of evidences) {
+      const evidenceFolder = `evidences/${evidence.id}`;
 
       // Add encrypted-data
-      zip.file(`${fpFolder}/encrypted-data`, fp.encryptedContent);
+      zip.file(`${evidenceFolder}/encrypted-data`, evidence.encryptedContent);
 
       // Calculate checksum for encrypted data
-      const dataChecksum = createHash('sha256')
-        .update(fp.encryptedContent)
-        .digest('hex');
-      checksumEntries.push(`${dataChecksum}  ${fpFolder}/encrypted-data`);
+      const dataChecksum = createHash("sha256")
+        .update(evidence.encryptedContent)
+        .digest("hex");
+      checksumEntries.push(`${dataChecksum}  ${evidenceFolder}/encrypted-data`);
 
       // Add metadata.json
       const metadata = {
-        id: fp.id,
-        timestamp: fp.timestamp,
-        conversationId: fp.conversationId,
-        llmProvider: fp.llmProvider,
-        contentHash: fp.contentHash,
-        messageCount: fp.messageCount,
-        tags: fp.tags,
-        nonce: Array.from(fp.nonce), // Convert Uint8Array to array for JSON
+        id: evidence.id,
+        timestamp: evidence.timestamp,
+        conversationId: evidence.conversationId,
+        llmProvider: evidence.llmProvider,
+        contentHash: evidence.contentHash,
+        messageCount: evidence.messageCount,
+        tags: evidence.tags,
+        nonce: Array.from(evidence.nonce), // Convert Uint8Array to array for JSON
       };
       const metadataJson = JSON.stringify(metadata, null, 2);
-      zip.file(`${fpFolder}/metadata.json`, metadataJson);
+      zip.file(`${evidenceFolder}/metadata.json`, metadataJson);
 
-      const metadataChecksum = createHash('sha256')
+      const metadataChecksum = createHash("sha256")
         .update(metadataJson)
-        .digest('hex');
+        .digest("hex");
       checksumEntries.push(
-        `${metadataChecksum}  ${fpFolder}/metadata.json`
+        `${metadataChecksum}  ${evidenceFolder}/metadata.json`,
       );
 
       // Add git-info.json if requested and available
-      if (includeGitInfo && fp.gitCommitHash && fp.gitTimestamp) {
+      if (includeGitInfo && evidence.gitCommitHash && evidence.gitTimestamp) {
         const gitInfo = {
-          gitCommitHash: fp.gitCommitHash,
-          gitTimestamp: fp.gitTimestamp,
+          gitCommitHash: evidence.gitCommitHash,
+          gitTimestamp: evidence.gitTimestamp,
         };
         const gitInfoJson = JSON.stringify(gitInfo, null, 2);
-        zip.file(`${fpFolder}/git-info.json`, gitInfoJson);
+        zip.file(`${evidenceFolder}/git-info.json`, gitInfoJson);
 
-        const gitChecksum = createHash('sha256').update(gitInfoJson).digest('hex');
-        checksumEntries.push(`${gitChecksum}  ${fpFolder}/git-info.json`);
+        const gitChecksum = createHash("sha256")
+          .update(gitInfoJson)
+          .digest("hex");
+        checksumEntries.push(`${gitChecksum}  ${evidenceFolder}/git-info.json`);
       }
     }
 
     // Add checksum.txt
     const checksumContent = [
-      'SHA-256 Checksums',
-      '=================',
-      '',
+      "SHA-256 Checksums",
+      "=================",
+      "",
       ...checksumEntries,
-    ].join('\n');
-    zip.file('checksum.txt', checksumContent);
+    ].join("\n");
+    zip.file("checksum.txt", checksumContent);
 
     // Generate ZIP data
     const zipData = await zip.generateAsync({
-      type: 'uint8array',
-      compression: 'DEFLATE',
+      type: "uint8array",
+      compression: "DEFLATE",
       compressionOptions: { level: 9 },
     });
 
     // Calculate ZIP checksum
-    const zipChecksum = createHash('sha256').update(zipData).digest('hex');
+    const zipChecksum = createHash("sha256").update(zipData).digest("hex");
 
-    // Generate filename
-    const timestamp = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    const filename = `footprint-export-${timestamp}.zip`;
+    // Generate filename with random suffix for unpredictability
+    const timestamp = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const uniqueSuffix = randomUUID().slice(0, 8);
+    const filename = `footprint-export-${timestamp}-${uniqueSuffix}.zip`;
 
     return {
       filename,
       zipData,
       checksum: zipChecksum,
-      footprintCount: footprints.length,
+      footprintCount: evidences.length,
     };
   } catch (error) {
     throw new Error(
-      `Failed to export footprints: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `Failed to export footprints: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
   }
 }

@@ -27,14 +27,16 @@ export const verifyFootprintSchema = {
         algorithm: z.string(),
       }),
     }),
-    legalReadiness: z.boolean(),
+    gitTimestampVerified: z.boolean(),
+    integrityVerified: z.boolean(),
     verifiedAt: z.string(),
   },
 };
 
 export const verifyFootprintMetadata = {
   title: "Verify Footprint",
-  description: "Verify the integrity and authenticity of captured footprint",
+  description:
+    "Verify the cryptographic integrity and authenticity of a captured footprint. Checks SHA-256 content hash, XChaCha20-Poly1305 decryption, and Git timestamp anchor. Returns integrityVerified: true only when all crypto checks pass.",
 };
 
 export function createVerifyFootprintHandler(
@@ -46,8 +48,8 @@ export function createVerifyFootprintHandler(
     "Verify the footprint ID exists and encryption password is correct.",
     async (params: { id: string }) => {
       // Find the footprint record
-      const fp = db.findById(params.id);
-      if (!fp) {
+      const evidence = db.findById(params.id);
+      if (!evidence) {
         throw new Error(`Footprint with ID ${params.id} not found`);
       }
 
@@ -71,8 +73,8 @@ export function createVerifyFootprintHandler(
       // This fixes the redundant decryption issue identified in Simplifier Round 1
       try {
         const decryptedContent = decrypt(
-          fp.encryptedContent,
-          fp.nonce,
+          evidence.encryptedContent,
+          evidence.nonce,
           key,
         );
         const computedHash = crypto
@@ -81,12 +83,12 @@ export function createVerifyFootprintHandler(
           .digest("hex");
 
         // Content integrity check
-        checks.contentIntegrity.passed = computedHash === fp.contentHash;
+        checks.contentIntegrity.passed = computedHash === evidence.contentHash;
         checks.contentIntegrity.hash = computedHash;
 
         // Encryption status check (decryption succeeded)
         checks.encryptionStatus.passed = true;
-      } catch (error) {
+      } catch (_error) {
         // Both checks fail if decryption fails
         checks.contentIntegrity.passed = false;
         checks.contentIntegrity.hash = "";
@@ -94,17 +96,18 @@ export function createVerifyFootprintHandler(
       }
 
       // Git Timestamp: Check if gitCommitHash exists and gitTimestamp is valid
-      checks.gitTimestamp.commitHash = fp.gitCommitHash;
-      checks.gitTimestamp.timestamp = fp.gitTimestamp;
+      checks.gitTimestamp.commitHash = evidence.gitCommitHash;
+      checks.gitTimestamp.timestamp = evidence.gitTimestamp;
       checks.gitTimestamp.passed = !!(
-        fp.gitCommitHash && fp.gitTimestamp
+        evidence.gitCommitHash && evidence.gitTimestamp
       );
 
-      const verified =
-        checks.contentIntegrity.passed &&
-        checks.gitTimestamp.passed &&
-        checks.encryptionStatus.passed;
-      const legalReadiness = verified;
+      // Verification based on crypto integrity only; git timestamp is supplementary
+      const hashValid = checks.contentIntegrity.passed;
+      const signatureValid = checks.encryptionStatus.passed;
+      const verified = hashValid && signatureValid;
+      const gitTimestampVerified = checks.gitTimestamp.passed;
+      const integrityVerified = verified;
 
       const statusSymbols = {
         content: checks.contentIntegrity.passed ? "✓" : "✗",
@@ -119,8 +122,9 @@ export function createVerifyFootprintHandler(
       return createToolResponse(statusText, {
         id: params.id,
         verified,
+        gitTimestampVerified,
         checks,
-        legalReadiness,
+        integrityVerified,
         verifiedAt: new Date().toISOString(),
       });
     },

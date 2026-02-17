@@ -52,7 +52,8 @@ export function wrapToolHandler<TParams, TResult>(
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       throw new Error(
-        `[Tool: ${toolName}] ${errorMessage}. Suggested action: ${suggestedAction}`
+        `[Tool: ${toolName}] ${errorMessage}. Suggested action: ${suggestedAction}`,
+        { cause: error }
       );
     }
   };
@@ -78,7 +79,8 @@ export function wrapSyncToolHandler<TParams, TResult>(
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       throw new Error(
-        `[Tool: ${toolName}] ${errorMessage}. Suggested action: ${suggestedAction}`
+        `[Tool: ${toolName}] ${errorMessage}. Suggested action: ${suggestedAction}`,
+        { cause: error }
       );
     }
   };

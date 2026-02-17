@@ -1,9 +1,11 @@
+/* global setTimeout */
 /**
  * Test fixtures and utilities for Footprint MCP Server tests
  * Provides shared setup, teardown, and test data generation
  */
 
-import { FootprintServer, FootprintTestHelpers } from "../src/index.js";
+import { FootprintServer } from "../src/index.js";
+import { FootprintTestHelpers } from "../src/test-helpers.js";
 import type { ServerConfig } from "../src/types.js";
 import * as fs from "fs";
 import * as path from "path";
@@ -57,9 +59,9 @@ export function createTestEnvironment(
   const cleanup = () => {
     try {
       if (server) {
-        // Close any database connections if the server has them
+        server.close();
       }
-    } catch (error) {
+    } catch {
       // Ignore close errors
     }
 
@@ -67,7 +69,7 @@ export function createTestEnvironment(
       if (tempDir && fs.existsSync(tempDir)) {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
-    } catch (error) {
+    } catch {
       // Ignore cleanup errors
     }
   };

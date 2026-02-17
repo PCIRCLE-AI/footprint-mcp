@@ -1,5 +1,9 @@
 #!/usr/bin/env node
+/* global console, process */
 
+import * as path from "path";
+import { fileURLToPath } from "node:url";
+import { realpathSync } from "node:fs";
 import {
   McpServer,
   ResourceTemplate,
@@ -15,6 +19,7 @@ import { registerUIResources } from "./ui/register.js";
 import { getErrorMessage } from "./lib/tool-wrapper.js";
 import { decrypt } from "./lib/crypto/index.js";
 import type { ServerConfig } from "./types.js";
+import { registerSkillPrompts } from "./prompts/skill-prompt.js";
 
 // Import all tool handlers
 import {
@@ -42,15 +47,9 @@ import {
   deleteFootprintsSchema,
   deleteFootprintsMetadata,
   createDeleteFootprintsHandler,
-  renameTagSchema,
-  renameTagMetadata,
-  createRenameTagHandler,
-  removeTagSchema,
-  removeTagMetadata,
-  createRemoveTagHandler,
-  getTagStatsSchema,
-  getTagStatsMetadata,
-  createGetTagStatsHandler,
+  manageTagsSchema,
+  manageTagsMetadata,
+  createManageTagsHandler,
 } from "./tools/index.js";
 
 /**
@@ -76,8 +75,8 @@ export class FootprintServer {
     }
 
     this.server = new McpServer({
-      name: config.name || "traceguard-mcp",
-      version: config.version || "0.1.0",
+      name: config.name || "footprint",
+      version: config.version || "1.5.0",
     });
 
     // Register UI resources for MCP Apps
@@ -85,6 +84,13 @@ export class FootprintServer {
 
     this.registerTools();
     this.registerResources();
+    try {
+      registerSkillPrompts(this.server);
+    } catch (error) {
+      throw new Error(
+        `Failed to register skill prompts: ${getErrorMessage(error)}`,
+      );
+    }
   }
 
   /**
@@ -234,37 +240,15 @@ export class FootprintServer {
       createDeleteFootprintsHandler(this.db),
     );
 
-    // Rename tag tool
+    // Unified tag management tool (replaces rename-tag, remove-tag, get-tag-stats)
     this.server.registerTool(
-      "rename-tag",
+      "manage-tags",
       {
-        ...renameTagMetadata,
-        inputSchema: renameTagSchema.inputSchema,
-        outputSchema: renameTagSchema.outputSchema,
+        ...manageTagsMetadata,
+        inputSchema: manageTagsSchema.inputSchema,
+        outputSchema: manageTagsSchema.outputSchema,
       },
-      createRenameTagHandler(this.db),
-    );
-
-    // Remove tag tool
-    this.server.registerTool(
-      "remove-tag",
-      {
-        ...removeTagMetadata,
-        inputSchema: removeTagSchema.inputSchema,
-        outputSchema: removeTagSchema.outputSchema,
-      },
-      createRemoveTagHandler(this.db),
-    );
-
-    // Get tag statistics tool
-    this.server.registerTool(
-      "get-tag-stats",
-      {
-        ...getTagStatsMetadata,
-        inputSchema: getTagStatsSchema.inputSchema,
-        outputSchema: getTagStatsSchema.outputSchema,
-      },
-      createGetTagStatsHandler(this.db),
+      createManageTagsHandler(this.db),
     );
   }
 
@@ -279,15 +263,18 @@ export class FootprintServer {
       },
       async (uri, { id }) => {
         try {
-          const footprint = this.db.findById(id as string);
-          if (!footprint) {
+          if (!id || typeof id !== "string" || !/^[a-zA-Z0-9_-]+$/.test(id)) {
+            throw new Error("Invalid footprint ID format");
+          }
+          const evidence = this.db.findById(id as string);
+          if (!evidence) {
             throw new Error(`Footprint with ID ${id} not found`);
           }
 
           const key = await this.getDerivedKey();
           const decrypted = decrypt(
-            footprint.encryptedContent,
-            footprint.nonce,
+            evidence.encryptedContent,
+            evidence.nonce,
             key,
           );
 
@@ -320,21 +307,28 @@ export class FootprintServer {
   }
 }
 
-async function main(): Promise<void> {
+// Export main as named function
+export async function main(): Promise<void> {
   const config: ServerConfig = {
-    dbPath: process.env.FOOTPRINT_DB_PATH || "./footprints.db",
-    password: process.env.FOOTPRINT_PASSWORD || "",
+    dbPath: process.env.FOOTPRINT_DATA_DIR
+      ? path.join(process.env.FOOTPRINT_DATA_DIR, "footprint.db")
+      : process.env.FOOTPRINT_DB_PATH || "./footprint.db",
+    password:
+      process.env.FOOTPRINT_PASSPHRASE || process.env.FOOTPRINT_PASSWORD || "",
   };
 
   if (!config.password) {
-    console.error("Error: FOOTPRINT_PASSWORD environment variable required");
+    console.error("Error: FOOTPRINT_PASSPHRASE environment variable required");
     process.exit(1);
   }
 
   const server = new FootprintServer(config);
 
   // Setup cleanup handlers for graceful shutdown
+  let cleanedUp = false;
   const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
     server.close();
   };
 
@@ -366,17 +360,20 @@ async function main(): Promise<void> {
   await server.start();
 }
 
-// Handle both direct execution and symlink execution
-const isMainModule =
-  import.meta.url === `file://${process.argv[1]}` ||
-  process.argv[1]?.endsWith("/footprint") ||
-  process.argv[1]?.endsWith("/dist/index.js");
+// Only run if this is the main module (not imported by CLI)
+const isMainModule = (() => {
+  try {
+    const thisFile = fileURLToPath(import.meta.url);
+    const mainFile = realpathSync(process.argv[1] ?? "");
+    return thisFile === mainFile;
+  } catch {
+    return false;
+  }
+})();
 
-if (isMainModule) {
+if (isMainModule && !process.argv.includes("setup")) {
   main().catch((error) => {
     console.error("Server error:", error);
     process.exit(1);
   });
 }
-
-export { FootprintTestHelpers } from "./test-helpers.js";

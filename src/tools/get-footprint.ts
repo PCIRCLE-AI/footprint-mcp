@@ -6,7 +6,11 @@ import type { EvidenceDatabase } from "../lib/storage/index.js";
 
 export const getFootprintSchema = {
   inputSchema: {
-    id: z.string().describe("Footprint ID"),
+    id: z
+      .string()
+      .describe(
+        "UUID of the footprint to retrieve. Use list-footprints or search-footprints to find IDs.",
+      ),
   },
   outputSchema: {
     id: z.string(),
@@ -27,7 +31,8 @@ export const getFootprintSchema = {
 
 export const getFootprintMetadata = {
   title: "Get Footprint",
-  description: "Retrieve and decrypt specific footprint by ID",
+  description:
+    "Retrieve and decrypt a specific footprint by ID. Returns full conversation content (decrypted), metadata, and Git timestamp info. Requires the correct encryption password (set via FOOTPRINT_PASSPHRASE env var).",
   _meta: {
     ui: {
       resourceUri: "ui://footprint/detail.html",
@@ -43,40 +48,43 @@ export function createGetFootprintHandler(
     "get-footprint",
     "Verify the footprint ID exists and password is correct.",
     async (params: { id: string }) => {
-      const fp = db.findById(params.id);
-      if (!fp) {
+      const evidence = db.findById(params.id);
+      if (!evidence) {
         throw new Error(`Footprint not found: ${params.id}`);
       }
 
       const key = await getDerivedKey();
-      const decrypted = decrypt(fp.encryptedContent, fp.nonce, key);
+      const decrypted = decrypt(evidence.encryptedContent, evidence.nonce, key);
 
       const gitInfo =
-        fp.gitCommitHash && fp.gitTimestamp
+        evidence.gitCommitHash && evidence.gitTimestamp
           ? {
-              commitHash: fp.gitCommitHash,
-              timestamp: fp.gitTimestamp,
+              commitHash: evidence.gitCommitHash,
+              timestamp: evidence.gitTimestamp,
             }
           : null;
 
       return formatSuccessResponse(
         "Footprint retrieved successfully",
         {
-          ID: fp.id,
-          Timestamp: fp.timestamp,
-          Provider: fp.llmProvider,
-          "Message Count": fp.messageCount,
-          "Content Preview": `${decrypted.substring(0, 100)}...`,
+          ID: evidence.id,
+          Timestamp: evidence.timestamp,
+          Provider: evidence.llmProvider,
+          "Message Count": evidence.messageCount,
+          "Content Preview":
+            decrypted.length > 100
+              ? `${decrypted.substring(0, 100)}...`
+              : decrypted,
         },
         {
-          id: fp.id,
-          timestamp: fp.timestamp,
-          conversationId: fp.conversationId,
-          llmProvider: fp.llmProvider,
+          id: evidence.id,
+          timestamp: evidence.timestamp,
+          conversationId: evidence.conversationId,
+          llmProvider: evidence.llmProvider,
           content: decrypted,
-          messageCount: fp.messageCount,
+          messageCount: evidence.messageCount,
           gitInfo,
-          tags: fp.tags,
+          tags: evidence.tags,
         },
       );
     },

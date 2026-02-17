@@ -73,10 +73,29 @@ const KEYWORD_CATEGORIES = {
 };
 
 /**
+ * Pre-compiled word-boundary regexes for each keyword to avoid
+ * creating RegExp objects on every call to matchesWord.
+ */
+const WORD_PATTERNS: Map<string, RegExp> = new Map();
+for (const keywords of Object.values(KEYWORD_CATEGORIES)) {
+  for (const word of keywords) {
+    WORD_PATTERNS.set(
+      word,
+      new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i"),
+    );
+  }
+}
+
+/**
  * Match whole words only to avoid false positives
  * (e.g., "logarithm" should not match "algorithm")
  */
 function matchesWord(text: string, word: string): boolean {
+  const cached = WORD_PATTERNS.get(word);
+  if (cached) {
+    return cached.test(text);
+  }
+  // Fallback for dynamic words not in KEYWORD_CATEGORIES
   const regex = new RegExp(
     `\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
     "i",
@@ -170,9 +189,10 @@ function generateTags(matches: KeywordMatch[]): string[] {
  */
 function generateConversationId(matches: KeywordMatch[]): string {
   const currentDate = new Date().toISOString().slice(0, 10);
+  const suffix = Math.random().toString(36).slice(2, 6);
 
   if (matches.length === 0) {
-    return `conversation-${currentDate}`;
+    return `conversation-${currentDate}-${suffix}`;
   }
 
   // Extract key terms for ID generation
@@ -182,10 +202,10 @@ function generateConversationId(matches: KeywordMatch[]): string {
     .filter((k) => k.length > 0);
 
   if (cleanKeywords.length > 0) {
-    return `${cleanKeywords.join("-")}-${currentDate}`;
+    return `${cleanKeywords.join("-")}-${currentDate}-${suffix}`;
   }
 
-  return `${matches[0].category}-discussion-${currentDate}`;
+  return `${matches[0].category}-discussion-${currentDate}-${suffix}`;
 }
 
 /**
@@ -196,7 +216,8 @@ function generateConversationId(matches: KeywordMatch[]): string {
  */
 export function analyzeContent(summary: string): AnalysisResult {
   const normalizedText = summary.toLowerCase();
-  const wordCount = normalizedText.split(/\s+/).length;
+  const wordCount =
+    normalizedText.split(/\s+/).filter((w) => w.length > 0).length || 1;
 
   // Find keyword matches
   const matches = findKeywordMatches(normalizedText);
