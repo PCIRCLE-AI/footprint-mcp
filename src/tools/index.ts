@@ -52,19 +52,7 @@ export {
 } from "./delete-footprints.js";
 
 export {
-  renameTagSchema,
-  renameTagMetadata,
-  createRenameTagHandler,
-} from "./rename-tag.js";
-
-export {
-  removeTagSchema,
-  removeTagMetadata,
-  createRemoveTagHandler,
-} from "./remove-tag.js";
-
-export {
-  getTagStatsSchema,
-  getTagStatsMetadata,
-  createGetTagStatsHandler,
-} from "./get-tag-stats.js";
+  manageTagsSchema,
+  manageTagsMetadata,
+  createManageTagsHandler,
+} from "./manage-tags.js";

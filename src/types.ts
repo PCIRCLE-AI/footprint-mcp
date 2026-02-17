@@ -22,14 +22,14 @@ export interface CaptureEvidenceParams {
   /** Conversation ID (e.g., Claude session ID) */
   conversationId: string;
 
-  /** LLM provider name */
-  llmProvider: string;
+  /** LLM provider name (defaults to "unknown" if omitted) */
+  llmProvider?: string;
 
   /** Conversation content (messages, prompts, responses) */
   content: string;
 
-  /** Number of messages in conversation */
-  messageCount: number;
+  /** Number of messages in conversation (auto-calculated if omitted) */
+  messageCount?: number;
 
   /** Optional tags for categorization */
   tags?: string;

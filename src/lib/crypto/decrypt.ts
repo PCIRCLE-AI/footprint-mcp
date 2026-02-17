@@ -1,4 +1,5 @@
-import { xchacha20poly1305 } from '@noble/ciphers/chacha';
+/* global TextDecoder */
+import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 
 /**
  * Decrypt ciphertext using XChaCha20-Poly1305 AEAD
@@ -12,14 +13,14 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 export function decrypt(
   ciphertext: Uint8Array,
   nonce: Uint8Array,
-  key: Uint8Array
+  key: Uint8Array,
 ): string {
   if (key.length !== 32) {
-    throw new Error('Key must be 32 bytes');
+    throw new Error("Key must be 32 bytes");
   }
 
   if (nonce.length !== 24) {
-    throw new Error('Nonce must be 24 bytes');
+    throw new Error("Nonce must be 24 bytes");
   }
 
   // Create cipher instance
@@ -30,13 +31,17 @@ export function decrypt(
     const plaintextBytes = cipher.decrypt(ciphertext);
 
     // Convert bytes back to string
-    return new TextDecoder().decode(plaintextBytes);
-  } catch (error) {
-    // Log detailed error for debugging (server-side only, never exposed to client)
-    const originalError = error instanceof Error ? error.message : String(error);
-    console.error('[Decrypt] Decryption failed:', originalError);
+    const result = new TextDecoder().decode(plaintextBytes);
 
+    // Zero decrypted bytes from memory (defense-in-depth)
+    plaintextBytes.fill(0);
+
+    return result;
+  } catch (error) {
     // User-facing error remains generic (security best practice)
-    throw new Error('Decryption failed: invalid key or tampered data');
+    // Original error preserved in cause chain for debugging
+    throw new Error("Decryption failed: invalid key or tampered data", {
+      cause: error,
+    });
   }
 }

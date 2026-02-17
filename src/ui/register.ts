@@ -106,7 +106,7 @@ export function registerUIResources(server: McpServer) {
     );
   });
 
-  console.log("✅ Registered UI resources:", resources.map(r => r.uri).join(", "));
+  console.log("Registered UI resources:", resources.map(r => r.uri).join(", "));
 
   return {
     dashboardUri: resources[0].uri,

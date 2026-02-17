@@ -5,6 +5,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-02-18
+
+### Changed
+
+- Updated all dependencies to latest versions
+  - `@noble/ciphers` v2.1.1, `@noble/hashes` v2.0.1 (Noble crypto v2 migration)
+  - `zod` v4.3.6, `vitest` v4.0.18, `vite` v7.3.1
+  - `isomorphic-git` v1.37.1, `ora` v9.3.0, `@types/node` v22.19.11
+
+### Security
+
+- Fixed Dependabot vulnerabilities via pnpm overrides (ajv ReDoS, qs arrayLimit bypass)
+- Fixed ESM import paths for Noble crypto v2 compatibility
+
+### Fixed
+
+- Vitest v4 no longer runs compiled test files from `dist/`
+
+## [1.4.0] - 2026-02-17
+
+### Added
+
+- **MCP Prompts** — 3 built-in prompts for AI agent integration:
+  - `footprint-skill` — Full agent behavior guide (decision tree, triggers, workflows)
+  - `footprint-quick-ref` — Condensed quick reference for tool selection
+  - `footprint-should-capture` — Semantic decision framework for capture evaluation
+- **Unified tag management** — `manage-tags` tool replaces 3 separate tools (rename-tag, remove-tag, get-tag-stats)
+- Auto-calculated `messageCount` when omitted from capture
+- Default `llmProvider` to `"unknown"` when not specified
+- Two-step delete confirmation (`confirmDelete` parameter)
+- Base64 export mode (`outputMode: "file" | "base64" | "both"`)
+- Enriched tool descriptions with usage hints and parameter guidance
+- Comprehensive feature coverage tests (112 tests across 13 files)
+
+### Changed
+
+- Reduced tool count from 11 to 9 (consolidated tag tools)
+- Renamed `legalReadiness` to `integrityVerified` in verify-footprint response
+- Search total count now respects all filters (tags, date range)
+
+### Security
+
+- Environment variable validation for passphrase/data directory
+- UUID format validation for evidence IDs
+- Parameterized queries to prevent LIKE injection
+- Timing-safe comparison for cryptographic operations
+- Fixed race conditions in export and pagination
+
+### Fixed
+
+- Pagination total count accuracy with filters
+- Backup file selection (sort to ensure latest)
+- Tag cleanup on evidence deletion
+
+## [1.3.0] - 2026-01-29
+
+### Added
+
+- Interactive CLI setup with `npx @pcircle/footprint setup`
+- Automatic system detection (OS, shell, Claude Desktop)
+- Password strength validation with user feedback
+- Automatic Claude Desktop configuration
+- Environment variable setup for shell RC files
+- Config file backup before modification
+- Comprehensive error handling and user guidance
+
+### Changed
+
+- Simplified Quick Start documentation
+- Updated Getting Started guide with interactive setup
+
 ## [1.2.0] - 2026-01-28
 
 ### Changed

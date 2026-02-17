@@ -1,8 +1,8 @@
-import { argon2id } from '@noble/hashes/argon2';
-import { randomBytes } from '@noble/hashes/utils';
-import { timingSafeEqual } from 'node:crypto';
-import type { DerivedKey, KeyDerivationParams } from './types.js';
-import { DEFAULT_KDF_PARAMS } from './types.js';
+import { argon2id } from "@noble/hashes/argon2.js";
+import { randomBytes } from "@noble/hashes/utils.js";
+import { timingSafeEqual } from "node:crypto";
+import type { DerivedKey, KeyDerivationParams } from "./types.js";
+import { DEFAULT_KDF_PARAMS } from "./types.js";
 
 /**
  * Derive encryption key from password using Argon2id
@@ -24,10 +24,10 @@ import { DEFAULT_KDF_PARAMS } from './types.js';
  */
 export async function deriveKey(
   password: string,
-  params: Partial<KeyDerivationParams> = {}
+  params: Partial<KeyDerivationParams> = {},
 ): Promise<DerivedKey> {
   if (!password || password.length === 0) {
-    throw new Error('Password cannot be empty');
+    throw new Error("Password cannot be empty");
   }
 
   const kdfParams = { ...DEFAULT_KDF_PARAMS, ...params };
@@ -36,16 +36,12 @@ export async function deriveKey(
   const salt = randomBytes(16);
 
   // Derive key using Argon2id
-  const key = argon2id(
-    password,
-    salt,
-    {
-      m: kdfParams.memory,
-      t: kdfParams.iterations,
-      p: kdfParams.parallelism,
-      dkLen: kdfParams.keyLength,
-    }
-  );
+  const key = argon2id(password, salt, {
+    m: kdfParams.memory,
+    t: kdfParams.iterations,
+    p: kdfParams.parallelism,
+    dkLen: kdfParams.keyLength,
+  });
 
   return { key, salt };
 }
@@ -62,29 +58,25 @@ export async function deriveKey(
 export async function rederiveKey(
   password: string,
   salt: Uint8Array,
-  params: Partial<KeyDerivationParams> = {}
+  params: Partial<KeyDerivationParams> = {},
 ): Promise<DerivedKey> {
   if (!password || password.length === 0) {
-    throw new Error('Password cannot be empty');
+    throw new Error("Password cannot be empty");
   }
 
   const kdfParams = { ...DEFAULT_KDF_PARAMS, ...params };
 
   if (salt.length !== 16) {
-    throw new Error('Salt must be 16 bytes');
+    throw new Error("Salt must be 16 bytes");
   }
 
   // Re-derive key using same salt
-  const key = argon2id(
-    password,
-    salt,
-    {
-      m: kdfParams.memory,
-      t: kdfParams.iterations,
-      p: kdfParams.parallelism,
-      dkLen: kdfParams.keyLength,
-    }
-  );
+  const key = argon2id(password, salt, {
+    m: kdfParams.memory,
+    t: kdfParams.iterations,
+    p: kdfParams.parallelism,
+    dkLen: kdfParams.keyLength,
+  });
 
   return { key, salt };
 }
@@ -105,37 +97,33 @@ export async function verifyKey(
   password: string,
   salt: Uint8Array,
   expectedKey: Uint8Array,
-  params: Partial<KeyDerivationParams> = {}
+  params: Partial<KeyDerivationParams> = {},
 ): Promise<boolean> {
   if (!password || password.length === 0) {
-    throw new Error('Password cannot be empty');
+    throw new Error("Password cannot be empty");
   }
 
   if (salt.length !== 16) {
-    throw new Error('Salt must be 16 bytes');
+    throw new Error("Salt must be 16 bytes");
   }
 
   if (expectedKey.length !== 32) {
-    throw new Error('Expected key must be 32 bytes');
+    throw new Error("Expected key must be 32 bytes");
   }
 
   const kdfParams = { ...DEFAULT_KDF_PARAMS, ...params };
 
   // Re-derive key using same salt
-  const derivedKey = argon2id(
-    password,
-    salt,
-    {
-      m: kdfParams.memory,
-      t: kdfParams.iterations,
-      p: kdfParams.parallelism,
-      dkLen: kdfParams.keyLength,
-    }
-  );
+  const derivedKey = argon2id(password, salt, {
+    m: kdfParams.memory,
+    t: kdfParams.iterations,
+    p: kdfParams.parallelism,
+    dkLen: kdfParams.keyLength,
+  });
 
   // Constant-time comparison to prevent timing attacks
   try {
-    return timingSafeEqual(Buffer.from(derivedKey), Buffer.from(expectedKey));
+    return timingSafeEqual(derivedKey, expectedKey);
   } catch {
     // timingSafeEqual throws if lengths don't match
     return false;

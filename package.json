@@ -1,7 +1,7 @@
 {
   "name": "@pcircle/footprint",
-  "version": "1.2.2",
-  "description": "MCP server for Footprint - automatic audit trails and encrypted footprints for AI conversations",
+  "version": "1.5.0",
+  "description": "MCP server that automatically captures and encrypts AI conversations as verifiable records with Git timestamps and end-to-end encryption.",
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -20,11 +20,19 @@
   "type": "module",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
   "bin": {
-    "footprint": "./dist/src/index.js"
+    "footprint": "./dist/src/cli/index.js"
   },
   "files": [
-    "dist",
+    "dist/src",
+    "!dist/src/test-helpers*",
+    "dist/ui",
     "SKILL.md",
     "README.md",
     "LICENSE"
@@ -51,26 +59,41 @@
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.0.1",
-    "@modelcontextprotocol/sdk": "^1.25.3",
-    "@noble/ciphers": "^0.5.2",
-    "@noble/hashes": "^1.3.3",
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@noble/ciphers": "^2.1.1",
+    "@noble/hashes": "^2.0.1",
     "better-sqlite3": "^12.6.2",
-    "isomorphic-git": "^1.36.2",
+    "chalk": "^5.6.2",
+    "isomorphic-git": "^1.37.1",
     "jszip": "^3.10.1",
-    "zod": "^3.23.8"
+    "ora": "^9.3.0",
+    "prompts": "^2.4.2",
+    "zod": "^4.3.6",
+    "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.9",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/node": "^22.10.5",
+    "@types/node": "^22.19.11",
+    "@types/prompts": "^2.4.9",
+    "@types/zxcvbn": "^4.4.5",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vite-plugin-singlefile": "^2.3.0",
-    "vitest": "^1.6.1"
+    "vitest": "^4.0.18"
+  },
+  "pnpm": {
+    "overrides": {
+      "esbuild": ">=0.25.0",
+      "undici": ">=6.23.0",
+      "ajv": ">=8.18.0",
+      "qs": ">=6.14.2"
+    },
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
   },
   "engines": {
     "node": ">=22.0.0"

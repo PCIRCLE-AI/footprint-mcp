@@ -7,7 +7,10 @@ export const suggestCaptureSchema = {
   inputSchema: {
     summary: z
       .string()
-      .describe("Conversation summary or key content to analyze"),
+      .max(1_000_000, "Summary too long (max ~1MB)")
+      .describe(
+        "Brief conversation summary or key content to analyze for capture-worthy signals (IP, legal, business decisions, research, compliance).",
+      ),
   },
   outputSchema: {
     shouldCapture: z.boolean(),
@@ -21,7 +24,7 @@ export const suggestCaptureSchema = {
 export const suggestCaptureMetadata = {
   title: "Suggest Capture",
   description:
-    "Analyze conversation content and suggest whether to capture it as a footprint",
+    "Lightweight keyword-based pre-filter that analyzes conversation content and suggests whether to capture it as evidence. For deeper semantic analysis, use the 'footprint-should-capture' prompt instead.",
 };
 
 export function createSuggestCaptureHandler() {
@@ -31,6 +34,9 @@ export function createSuggestCaptureHandler() {
     async (params: { summary: string }) => {
       if (!params.summary || params.summary.trim().length === 0) {
         throw new Error("Summary cannot be empty");
+      }
+      if (params.summary.length > 1_000_000) {
+        throw new Error("Summary too long (max ~1MB)");
       }
 
       // Analyze content using content analyzer

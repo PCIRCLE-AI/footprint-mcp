@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { FootprintServer, FootprintTestHelpers } from "../src/index.js";
+import { FootprintServer } from "../src/index.js";
+import { FootprintTestHelpers } from "../src/test-helpers.js";
 import type { ServerConfig } from "../src/types.js";
 import * as fs from "fs";
 import * as path from "path";
@@ -35,9 +36,9 @@ describe("MCP Tools", () => {
     // Clean up test database and directory
     try {
       if (server) {
-        // Close any database connections if the server has them
+        server.close();
       }
-    } catch (error) {
+    } catch {
       // Ignore close errors
     }
 
@@ -45,7 +46,7 @@ describe("MCP Tools", () => {
       if (tempDir && fs.existsSync(tempDir)) {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
-    } catch (error) {
+    } catch {
       // Ignore cleanup errors
     }
   });
@@ -159,6 +160,27 @@ describe("MCP Tools", () => {
         helpers.callTool("search-footprints", { dateTo: "invalid-date" }),
       ).rejects.toThrow("dateTo must be a valid ISO date string");
     });
+
+    it("should reject dateFrom after dateTo", async () => {
+      await expect(
+        helpers.callTool("search-footprints", {
+          dateFrom: "2026-02-01T00:00:00Z",
+          dateTo: "2026-01-01T00:00:00Z",
+        }),
+      ).rejects.toThrow("dateFrom must be before dateTo");
+    });
+
+    it("should reject dateFrom after dateTo with mixed timezone offsets", async () => {
+      // "2026-01-02T06:00:00+05:00" = 2026-01-02T01:00:00Z (later)
+      // "2026-01-02T00:30:00Z" (earlier)
+      // String comparison would get this wrong; Date parsing handles it correctly
+      await expect(
+        helpers.callTool("search-footprints", {
+          dateFrom: "2026-01-02T06:00:00+05:00",
+          dateTo: "2026-01-02T00:30:00Z",
+        }),
+      ).rejects.toThrow("dateFrom must be before dateTo");
+    });
   });
 
   describe("verify-footprint tool", () => {
@@ -177,9 +199,11 @@ describe("MCP Tools", () => {
         id: evidenceId,
       });
       expect(verifyResult.structuredContent.verified).toBe(true);
-      expect(
-        (verifyResult.structuredContent as any).checks.contentIntegrity.passed,
-      ).toBe(true);
+      const checks = verifyResult.structuredContent.checks as Record<
+        string,
+        Record<string, unknown>
+      >;
+      expect(checks.contentIntegrity.passed).toBe(true);
     });
   });
 
@@ -190,7 +214,7 @@ describe("MCP Tools", () => {
       expect(tools).toContainEqual(
         expect.objectContaining({
           name: "suggest-capture",
-          description: expect.stringContaining("Analyze conversation content"),
+          description: expect.stringContaining("keyword-based pre-filter"),
         }),
       );
     });
@@ -295,6 +319,22 @@ describe("MCP Tools", () => {
       );
     });
 
+    it("should generate unique conversation IDs with random suffix", async () => {
+      const result1 = await helpers.callTool("suggest-capture", {
+        summary:
+          "Discussing patent application for the new AI algorithm invention.",
+      });
+      const result2 = await helpers.callTool("suggest-capture", {
+        summary:
+          "Discussing patent application for the new AI algorithm invention.",
+      });
+
+      // Same keywords produce same prefix but different random suffixes
+      expect(result1.structuredContent.suggestedConversationId).not.toBe(
+        result2.structuredContent.suggestedConversationId,
+      );
+    });
+
     it("should validate input parameters", async () => {
       await expect(helpers.callTool("suggest-capture", {})).rejects.toThrow();
 
@@ -310,13 +350,10 @@ describe("MCP Tools", () => {
       });
 
       expect(result.structuredContent.shouldCapture).toBe(true);
-      expect(
-        (result.structuredContent as any).suggestedTags.length,
-      ).toBeGreaterThan(1);
-      expect((result.structuredContent as any).suggestedTags).toContain("ip");
-      expect((result.structuredContent as any).suggestedTags).toContain(
-        "legal",
-      );
+      const suggestedTags = result.structuredContent.suggestedTags as string[];
+      expect(suggestedTags.length).toBeGreaterThan(1);
+      expect(suggestedTags).toContain("ip");
+      expect(suggestedTags).toContain("legal");
       expect(result.structuredContent.confidence).toBeGreaterThan(0.8);
     });
   });

@@ -1,14 +1,19 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { FootprintServer, FootprintTestHelpers } from '../src/index.js';
-import type { ServerConfig } from '../src/types.js';
-import * as fs from 'fs';
-import * as path from 'path';
+/* global process */
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { FootprintServer } from "../src/index.js";
+import { FootprintTestHelpers } from "../src/test-helpers.js";
+import type { ServerConfig } from "../src/types.js";
+import * as fs from "fs";
+import * as path from "path";
 
-describe('Error Handling & Edge Cases', () => {
+describe("Error Handling & Edge Cases", () => {
   let server: FootprintServer;
   let helpers: FootprintTestHelpers;
-  const testDbPath = path.join(process.cwd(), `test-edge-cases-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
-  const testPassword = 'edge-case-password';
+  const testDbPath = path.join(
+    process.cwd(),
+    `test-edge-cases-${Date.now()}-${Math.random().toString(36).substring(7)}.db`,
+  );
+  const testPassword = "edge-case-password";
 
   beforeEach(() => {
     if (fs.existsSync(testDbPath)) {
@@ -17,7 +22,7 @@ describe('Error Handling & Edge Cases', () => {
 
     const config: ServerConfig = {
       dbPath: testDbPath,
-      password: testPassword
+      password: testPassword,
     };
 
     server = new FootprintServer(config);
@@ -25,92 +30,177 @@ describe('Error Handling & Edge Cases', () => {
   });
 
   afterEach(() => {
-    if (fs.existsSync(testDbPath)) {
-      fs.unlinkSync(testDbPath);
+    try {
+      if (server) {
+        server.close();
+      }
+    } catch {
+      // Ignore close errors
+    }
+    try {
+      if (fs.existsSync(testDbPath)) {
+        fs.unlinkSync(testDbPath);
+      }
+      // Clean up WAL/SHM files
+      for (const suffix of ["-wal", "-shm"]) {
+        if (fs.existsSync(testDbPath + suffix)) {
+          fs.unlinkSync(testDbPath + suffix);
+        }
+      }
+    } catch {
+      // Ignore cleanup errors
     }
   });
 
-  describe('Input Validation', () => {
-    it('should reject empty conversation content', async () => {
+  describe("Input Validation", () => {
+    it("should reject empty conversation content", async () => {
       await expect(
-        helpers.callTool('capture-footprint', {
-          conversationId: 'conv-1',
-          llmProvider: 'Claude',
-          content: '',
-          messageCount: 0
-        })
+        helpers.callTool("capture-footprint", {
+          conversationId: "conv-1",
+          llmProvider: "Claude",
+          content: "",
+          messageCount: 0,
+        }),
       ).rejects.toThrow();
     });
 
-    it('should reject negative message count', async () => {
+    it("should reject negative message count", async () => {
       await expect(
-        helpers.callTool('capture-footprint', {
-          conversationId: 'conv-1',
-          llmProvider: 'Claude',
-          content: 'test',
-          messageCount: -1
-        })
+        helpers.callTool("capture-footprint", {
+          conversationId: "conv-1",
+          llmProvider: "Claude",
+          content: "test",
+          messageCount: -1,
+        }),
       ).rejects.toThrow();
     });
 
-    it('should reject invalid pagination parameters', async () => {
+    it("should reject invalid pagination parameters", async () => {
       await expect(
-        helpers.callTool('list-footprints', { limit: -1 })
+        helpers.callTool("list-footprints", { limit: -1 }),
       ).rejects.toThrow();
 
       await expect(
-        helpers.callTool('list-footprints', { offset: -5 })
+        helpers.callTool("list-footprints", { offset: -5 }),
       ).rejects.toThrow();
     });
   });
 
-  describe('Large Content Handling', () => {
-    it('should handle large conversation content (>1MB)', async () => {
-      const largeContent = 'x'.repeat(2 * 1024 * 1024); // 2MB
+  describe("Large Content Handling", () => {
+    it("should handle large conversation content (>1MB)", async () => {
+      const largeContent = "x".repeat(2 * 1024 * 1024); // 2MB
 
-      const result = await helpers.callTool('capture-footprint', {
-        conversationId: 'large-conv',
-        llmProvider: 'Claude',
+      const result = await helpers.callTool("capture-footprint", {
+        conversationId: "large-conv",
+        llmProvider: "Claude",
         content: largeContent,
-        messageCount: 100
+        messageCount: 100,
       });
 
       expect(result.structuredContent.success).toBe(true);
 
       // Verify retrieval
-      const retrieved = await helpers.callTool('get-footprint', {
-        id: result.structuredContent.id
+      const retrieved = await helpers.callTool("get-footprint", {
+        id: result.structuredContent.id,
       });
 
       expect(retrieved.structuredContent.content).toBe(largeContent);
     });
-  });
 
-  describe('Special Characters', () => {
-    it('should handle UTF-8, emoji, and special characters', async () => {
-      const specialContent = '你好 🔐 测试 \n\t Special: <>&"\'';
+    it("should reject content exceeding 10MB", async () => {
+      const hugeContent = "x".repeat(10 * 1024 * 1024 + 1); // Just over 10MB
 
-      const result = await helpers.callTool('capture-footprint', {
-        conversationId: 'special-conv',
-        llmProvider: 'Claude Sonnet 4.5',
-        content: specialContent,
-        messageCount: 1,
-        tags: 'emoji-✨,中文-测试'
-      });
+      await expect(
+        helpers.callTool("capture-footprint", {
+          conversationId: "huge-conv",
+          llmProvider: "Claude",
+          content: hugeContent,
+          messageCount: 1,
+        }),
+      ).rejects.toThrow(/Content too large/);
+    });
 
-      const retrieved = await helpers.callTool('get-footprint', {
-        id: result.structuredContent.id
-      });
+    it("should reject conversationId exceeding 500 characters", async () => {
+      const longId = "x".repeat(501);
 
-      expect(retrieved.structuredContent.content).toBe(specialContent);
-      expect(retrieved.structuredContent.tags).toBe('emoji-✨,中文-测试');
+      await expect(
+        helpers.callTool("capture-footprint", {
+          conversationId: longId,
+          llmProvider: "Claude",
+          content: "test content",
+          messageCount: 1,
+        }),
+      ).rejects.toThrow("Conversation ID too long");
     });
   });
 
-  describe('Database Errors', () => {
-    it('should handle database corruption gracefully', async () => {
+  describe("Content Preview", () => {
+    it('should not append "..." to short content preview in get-footprint', async () => {
+      const shortContent = "Short message under 100 chars";
+      const result = await helpers.callTool("capture-footprint", {
+        conversationId: "short-content-test",
+        llmProvider: "Claude",
+        content: shortContent,
+        messageCount: 1,
+      });
+
+      const getResult = await helpers.callTool("get-footprint", {
+        id: result.structuredContent.id,
+      });
+
+      // Full content is in structuredContent.content
+      expect(getResult.structuredContent.content).toBe(shortContent);
+      // Text output should NOT have trailing "..."
+      expect(getResult.textContent).not.toContain(
+        "Short message under 100 chars...",
+      );
+    });
+
+    it('should append "..." to long content preview in get-footprint', async () => {
+      const longContent = "A".repeat(200);
+      const result = await helpers.callTool("capture-footprint", {
+        conversationId: "long-content-test",
+        llmProvider: "Claude",
+        content: longContent,
+        messageCount: 1,
+      });
+
+      const getResult = await helpers.callTool("get-footprint", {
+        id: result.structuredContent.id,
+      });
+
+      // Text output should have trailing "..." for truncated preview
+      expect(getResult.textContent).toContain("...");
+      // Full content is preserved
+      expect(getResult.structuredContent.content).toBe(longContent);
+    });
+  });
+
+  describe("Special Characters", () => {
+    it("should handle UTF-8, emoji, and special characters", async () => {
+      const specialContent = "你好 🔐 测试 \n\t Special: <>&\"'";
+
+      const result = await helpers.callTool("capture-footprint", {
+        conversationId: "special-conv",
+        llmProvider: "Claude Sonnet 4.5",
+        content: specialContent,
+        messageCount: 1,
+        tags: "emoji-✨,中文-测试",
+      });
+
+      const retrieved = await helpers.callTool("get-footprint", {
+        id: result.structuredContent.id,
+      });
+
+      expect(retrieved.structuredContent.content).toBe(specialContent);
+      expect(retrieved.structuredContent.tags).toBe("emoji-✨,中文-测试");
+    });
+  });
+
+  describe("Database Errors", () => {
+    it("should handle database corruption gracefully", async () => {
       // Corrupt database by writing garbage
-      fs.writeFileSync(testDbPath, 'CORRUPTED_DATA');
+      fs.writeFileSync(testDbPath, "CORRUPTED_DATA");
 
       // Also remove WAL files if they exist (WAL mode creates these)
       const walPath = `${testDbPath}-wal`;
@@ -122,22 +212,22 @@ describe('Error Handling & Edge Cases', () => {
       expect(() => {
         new FootprintServer({
           dbPath: testDbPath,
-          password: testPassword
+          password: testPassword,
         });
       }).toThrow();
     });
   });
 
-  describe('Empty Database', () => {
-    it('should handle empty database correctly', async () => {
-      const result = await helpers.callTool('list-footprints', {});
+  describe("Empty Database", () => {
+    it("should handle empty database correctly", async () => {
+      const result = await helpers.callTool("list-footprints", {});
 
       expect(result.structuredContent.total).toBe(0);
       expect(result.structuredContent.footprints).toEqual([]);
     });
 
-    it('should handle export of empty database', async () => {
-      const result = await helpers.callTool('export-footprints', {});
+    it("should handle export of empty database", async () => {
+      const result = await helpers.callTool("export-footprints", {});
 
       expect(result.structuredContent.footprintCount).toBe(0);
     });
