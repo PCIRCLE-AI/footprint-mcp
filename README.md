@@ -16,11 +16,21 @@ The session recorder preserves raw transcript and timeline data first, then deri
 
 Interactive sessions use `script`-backed PTY transport on BSD/macOS and Linux. BSD/macOS replays native `script -r` transcripts, while Linux replays util-linux advanced timing logs so transcript attribution stays consistent across platforms.
 
+## Screenshots
+
+**Work Overview** — What Matters Now, recurring problems, and recent sessions at a glance:
+
+![Footprint work overview dashboard showing recurring problems, what matters now, and recent sessions](docs/screenshots/dashboard.png)
+
+**Session Detail** — Plain-language summary, context threads, pickup note, and activity log for a single session:
+
+![Footprint session detail showing context review, pickup note, and related earlier work](docs/screenshots/session-detail.png)
+
 ## Start Here
 
 If you are new to Footprint, use this order:
 
-1. [Open the project site](https://footprint.memesh.ai/) and look at the product screenshots first.
+1. [Open the project site](https://footprint.memesh.ai/) for more product screenshots and documentation.
 2. Run `npx @pcircle/footprint setup` to try it quickly, or install the CLI with `npm install -g @pcircle/footprint`.
 3. If you are still using the quick `npx` path, open the local product with `npx @pcircle/footprint demo --open`. If you installed the CLI, use `footprint demo --open`.
 4. Start recording real work with `footprint run ...`.
