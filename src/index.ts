@@ -23,9 +23,15 @@ import type { ServerConfig } from "./types.js";
 import { registerSkillPrompts } from "./prompts/skill-prompt.js";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { version: PKG_VERSION } = require("../../package.json") as {
-  version: string;
-};
+// Resolve package.json in both compiled (dist/src/) and tsx source (src/) environments
+const PKG_VERSION: string = (() => {
+  for (const rel of ["../../package.json", "../package.json"]) {
+    try {
+      return (require(rel) as { version: string }).version;
+    } catch {}
+  }
+  return "0.0.0";
+})();
 
 // Import all tool handlers
 import {
