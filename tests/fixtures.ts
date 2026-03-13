@@ -5,7 +5,7 @@
  */
 
 import { FootprintServer } from "../src/index.js";
-import { FootprintTestHelpers } from "../src/test-helpers.js";
+import { FootprintTestHelpers } from "./test-helpers.js";
 import type { ServerConfig } from "../src/types.js";
 import * as fs from "fs";
 import * as path from "path";
@@ -40,8 +40,8 @@ export function createTestEnvironment(
   password: string = "test-password-123",
 ): TestEnvironment {
   // Create unique temporary directory for each test
-  const tempDir = fs.mkdtempSync(path.join(tmpdir(), "footprint-mcp-test-"));
-  const testDbPath = path.join(tempDir, "test-footprint.db");
+  const tempDir = fs.mkdtempSync(path.join(tmpdir(), "evidence-mcp-test-"));
+  const testDbPath = path.join(tempDir, "test-evidence.db");
 
   // Clean up any existing test database
   if (fs.existsSync(testDbPath)) {

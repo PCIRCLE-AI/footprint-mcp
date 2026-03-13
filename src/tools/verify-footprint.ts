@@ -27,7 +27,6 @@ export const verifyFootprintSchema = {
         algorithm: z.string(),
       }),
     }),
-    gitTimestampVerified: z.boolean(),
     integrityVerified: z.boolean(),
     verifiedAt: z.string(),
   },
@@ -45,12 +44,12 @@ export function createVerifyFootprintHandler(
 ) {
   return wrapToolHandler(
     "verify-footprint",
-    "Verify the footprint ID exists and encryption password is correct.",
+    "Verify the evidence ID exists and encryption password is correct.",
     async (params: { id: string }) => {
       // Find the footprint record
       const evidence = db.findById(params.id);
       if (!evidence) {
-        throw new Error(`Footprint with ID ${params.id} not found`);
+        throw new Error(`Evidence with ID ${params.id} not found`);
       }
 
       const key = await getDerivedKey();
@@ -88,7 +87,7 @@ export function createVerifyFootprintHandler(
 
         // Encryption status check (decryption succeeded)
         checks.encryptionStatus.passed = true;
-      } catch (_error) {
+      } catch {
         // Both checks fail if decryption fails
         checks.contentIntegrity.passed = false;
         checks.contentIntegrity.hash = "";
@@ -116,8 +115,8 @@ export function createVerifyFootprintHandler(
       };
 
       const statusText = verified
-        ? `✅ Footprint ${params.id} verified successfully\n- Content: ${statusSymbols.content} Integrity preserved\n- Git: ${statusSymbols.git} Timestamp verified\n- Encryption: ${statusSymbols.encryption} XChaCha20-Poly1305`
-        : `❌ Footprint ${params.id} verification failed\n- Content: ${statusSymbols.content} Integrity check\n- Git: ${statusSymbols.git} Timestamp check\n- Encryption: ${statusSymbols.encryption} Decryption check`;
+        ? `✅ Evidence ${params.id} verified successfully\n- Content: ${statusSymbols.content} Integrity preserved\n- Git: ${statusSymbols.git} Timestamp verified\n- Encryption: ${statusSymbols.encryption} XChaCha20-Poly1305`
+        : `❌ Evidence ${params.id} verification failed\n- Content: ${statusSymbols.content} Integrity check\n- Git: ${statusSymbols.git} Timestamp check\n- Encryption: ${statusSymbols.encryption} Decryption check`;
 
       return createToolResponse(statusText, {
         id: params.id,

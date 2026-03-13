@@ -1,15 +1,20 @@
 {
   "name": "@pcircle/footprint",
-  "version": "1.5.0",
-  "description": "MCP server that automatically captures and encrypts AI conversations as verifiable records with Git timestamps and end-to-end encryption.",
+  "version": "1.6.0",
+  "description": "Local-first MCP server for AI work history, context memory, and encrypted evidence",
   "keywords": [
     "mcp",
     "model-context-protocol",
     "llm",
     "audit",
-    "audit-trail",
+    "evidence",
     "encryption",
     "footprint",
+    "history",
+    "memory",
+    "handoff",
+    "continuity",
+    "provenance",
     "claude",
     "chatgpt",
     "compliance",
@@ -27,11 +32,11 @@
     }
   },
   "bin": {
-    "footprint": "./dist/src/cli/index.js"
+    "footprint": "./bin/footprint.js"
   },
   "files": [
+    "bin",
     "dist/src",
-    "!dist/src/test-helpers*",
     "dist/ui",
     "SKILL.md",
     "README.md",
@@ -45,17 +50,35 @@
     "url": "https://github.com/PCIRCLE-AI/footprint-mcp/issues"
   },
   "homepage": "https://footprint.memesh.ai",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "pnpm build:ui && tsc",
-    "build:ui": "mkdir -p dist/ui && pnpm build:ui:dashboard && pnpm build:ui:detail && pnpm build:ui:export",
+    "build:ui": "mkdir -p dist/ui && pnpm build:ui:dashboard && pnpm build:ui:detail && pnpm build:ui:export && pnpm build:ui:session-dashboard && pnpm build:ui:session-detail && pnpm build:ui:session-dashboard-live && pnpm build:ui:session-detail-live",
     "build:ui:dashboard": "cross-env INPUT=ui/dashboard.html vite build --outDir dist/ui-tmp && cp dist/ui-tmp/ui/dashboard.html dist/ui/dashboard.html",
     "build:ui:detail": "cross-env INPUT=ui/detail.html vite build --outDir dist/ui-tmp && cp dist/ui-tmp/ui/detail.html dist/ui/detail.html",
     "build:ui:export": "cross-env INPUT=ui/export.html vite build --outDir dist/ui-tmp && cp dist/ui-tmp/ui/export.html dist/ui/export.html",
+    "build:ui:session-dashboard": "cross-env INPUT=ui/session-dashboard.html vite build --outDir dist/ui-tmp && cp dist/ui-tmp/ui/session-dashboard.html dist/ui/session-dashboard.html",
+    "build:ui:session-detail": "cross-env INPUT=ui/session-detail.html vite build --outDir dist/ui-tmp && cp dist/ui-tmp/ui/session-detail.html dist/ui/session-detail.html",
+    "build:ui:session-dashboard-live": "cross-env INPUT=ui/session-dashboard-live.html vite build --outDir dist/ui-tmp && cp dist/ui-tmp/ui/session-dashboard-live.html dist/ui/session-dashboard-live.html",
+    "build:ui:session-detail-live": "cross-env INPUT=ui/session-detail-live.html vite build --outDir dist/ui-tmp && cp dist/ui-tmp/ui/session-detail-live.html dist/ui/session-detail-live.html",
     "dev": "concurrently 'pnpm build:ui --watch' 'tsc --watch'",
+    "demo:live": "pnpm build && node bin/footprint.js demo",
+    "demo:live:open": "pnpm build && node bin/footprint.js demo --open",
     "test": "vitest",
-    "test:run": "vitest run",
+    "test:browser": "vitest --browser --config vitest.browser.config.ts run",
+    "test:pack-smoke": "node scripts/package-install-smoke.mjs",
+    "test:publish-gate": "pnpm audit --audit-level=moderate && pnpm build && pnpm test:run && pnpm test:pack-smoke",
+    "test:real-host-smoke": "node scripts/real-host-smoke.mjs",
+    "test:macos-smoke": "node scripts/macos-pty-smoke.mjs",
+    "test:linux-smoke": "node scripts/linux-pty-smoke.mjs",
+    "test:run": "vitest --config vitest.node.config.ts run",
+    "publish:npm": "npm publish --access public --provenance",
     "clean": "rm -rf dist",
-    "prepublishOnly": "pnpm clean && pnpm build && pnpm test:run"
+    "prepack": "pnpm clean && pnpm build",
+    "prepublishOnly": "pnpm test:publish-gate"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.0.1",
@@ -76,8 +99,10 @@
     "@types/node": "^22.19.11",
     "@types/prompts": "^2.4.9",
     "@types/zxcvbn": "^4.4.5",
+    "@vitest/browser-playwright": "^4.0.18",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
+    "playwright": "^1.58.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",

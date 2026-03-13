@@ -27,7 +27,7 @@ export const captureFootprintSchema = {
       .string()
       .max(10 * 1024 * 1024, "Content exceeds 10MB limit")
       .describe(
-        "Full conversation text including both human and assistant messages. Include complete message history for accurate footprint preservation.",
+        "Full conversation text including both human and assistant messages. Include complete message history for accurate evidence preservation.",
       ),
     messageCount: z
       .number()
@@ -165,7 +165,7 @@ export function createCaptureFootprintHandler(
       });
 
       return formatSuccessResponse(
-        "Footprint captured successfully",
+        "Evidence captured successfully",
         {
           ID: id,
           Timestamp: timestamp,

@@ -23,7 +23,7 @@ export interface ToolResponse<T = unknown> {
  * @example
  * ```typescript
  * return createToolResponse(
- *   '✅ Footprint captured successfully\n- ID: abc123\n- Timestamp: 2024-01-01',
+ *   '✅ Evidence captured successfully\n- ID: abc123\n- Timestamp: 2024-01-01',
  *   { id: 'abc123', timestamp: '2024-01-01', success: true }
  * );
  * ```
@@ -72,11 +72,11 @@ export function formatBulletList(
  * @example
  * ```typescript
  * return formatSuccessResponse(
- *   'Footprint captured successfully',
+ *   'Evidence captured successfully',
  *   { id: 'abc123', timestamp: '2024-01-01' },
  *   { id: 'abc123', success: true }
  * );
- * // Returns: "✅ Footprint captured successfully\n- id: abc123\n- timestamp: 2024-01-01"
+ * // Returns: "✅ Evidence captured successfully\n- id: abc123\n- timestamp: 2024-01-01"
  * ```
  */
 export function formatSuccessResponse<T>(

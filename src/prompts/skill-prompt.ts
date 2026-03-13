@@ -31,12 +31,25 @@ Should I capture this conversation?
 \u251C\u2500 Casual chat/small talk \u2192 NO
 \u2514\u2500 Uncertain \u2192 ASK user
 
+Should I reuse prior work context?
+\u251C\u2500 Continuing or resuming work \u2192 resolve-context first
+\u251C\u2500 resolve-context says confirmationRequired \u2192 ASK user
+\u251C\u2500 In interactive CLI, use context prepare / run --prepare-context to ask before recording
+\u251C\u2500 No strong candidate \u2192 create or confirm a new context
+\u2514\u2500 User corrected the context before \u2192 trust confirmed context, not guesswork
+
 ## Tool Selection
 - Save conversation \u2192 capture-footprint
 - Browse/overview \u2192 list-footprints
 - Full content retrieval \u2192 get-footprint
 - Find by query/tags/dates \u2192 search-footprints
 - Legal/audit export \u2192 export-footprints
+- Session browse/detail \u2192 list-sessions / get-session
+- Session handoff export \u2192 export-sessions
+- Resolve likely work context \u2192 resolve-context
+- Inspect confirmed context briefing \u2192 list-contexts / get-context
+- Confirm or correct session-to-context links \u2192 confirm-context-link / reject-context-link / move-session-context
+- Reorganize contexts \u2192 merge-contexts / split-context / set-active-context
 - Verify integrity \u2192 verify-footprint
 - Tag management \u2192 manage-tags (stats/rename/remove)
 - Keyword pre-filter \u2192 suggest-capture
@@ -96,7 +109,7 @@ export function registerSkillPrompts(server: McpServer): void {
     "footprint-should-capture",
     {
       description:
-        "Semantic decision framework for whether to capture a conversation as a footprint. Provides structured criteria for the AI to assess, unlike suggest-capture which uses keyword matching.",
+        "Semantic decision framework for whether to capture a conversation as evidence. Provides structured criteria for the AI to assess, unlike suggest-capture which uses keyword matching.",
       argsSchema: {
         conversationSummary: z
           .string()
@@ -111,7 +124,7 @@ export function registerSkillPrompts(server: McpServer): void {
           role: "user" as const,
           content: {
             type: "text" as const,
-            text: `Evaluate whether this conversation should be captured as a footprint.
+            text: `Evaluate whether this conversation should be captured as evidence using Footprint.
 
 ## Conversation Summary
 ${conversationSummary}

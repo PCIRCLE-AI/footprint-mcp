@@ -1,12 +1,13 @@
 /* global process */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { FootprintServer } from "../src/index.js";
-import { FootprintTestHelpers } from "../src/test-helpers.js";
+import { FootprintTestHelpers } from "./test-helpers.js";
 import type { ServerConfig } from "../src/types.js";
 import * as fs from "fs";
 import * as path from "path";
 
-describe("TraceGuard MCP Server Integration", () => {
+// Legacy evidence flow coverage stays in place while the recorder model rolls out.
+describe("Footprint Evidence Integration", () => {
   let server: FootprintServer;
   let helpers: FootprintTestHelpers;
   let testDbPath: string;
@@ -57,7 +58,7 @@ describe("TraceGuard MCP Server Integration", () => {
     try {
       const exports = fs
         .readdirSync(".")
-        .filter((f) => f.startsWith("footprint-export-"));
+        .filter((f) => f.startsWith("evidence-export-"));
       exports.forEach((f) => fs.unlinkSync(f));
     } catch {
       // Ignore cleanup errors
@@ -85,7 +86,7 @@ describe("TraceGuard MCP Server Integration", () => {
     const listResult = await helpers.callTool("list-footprints", {});
 
     expect(listResult.structuredContent.total).toBe(1);
-    const evidences = listResult.structuredContent.footprints as Array<
+    const evidences = listResult.structuredContent.evidences as Array<
       Record<string, unknown>
     >;
     expect(evidences[0]).toMatchObject({
@@ -114,8 +115,8 @@ describe("TraceGuard MCP Server Integration", () => {
 
     expect(exportResult.structuredContent).toMatchObject({
       success: true,
-      footprintCount: 1,
-      filename: expect.stringContaining("footprint-export-"),
+      evidenceCount: 1,
+      filename: expect.stringContaining("evidence-export-"),
       checksum: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
 
@@ -145,32 +146,32 @@ describe("TraceGuard MCP Server Integration", () => {
       offset: 0,
     });
     expect(page1.structuredContent.total).toBe(3);
-    expect((page1.structuredContent.footprints as unknown[]).length).toBe(2);
+    expect((page1.structuredContent.evidences as unknown[]).length).toBe(2);
 
     const page2 = await helpers.callTool("list-footprints", {
       limit: 2,
       offset: 2,
     });
     expect(page2.structuredContent.total).toBe(3);
-    expect((page2.structuredContent.footprints as unknown[]).length).toBe(1);
+    expect((page2.structuredContent.evidences as unknown[]).length).toBe(1);
 
     // Export subset
     const exportResult = await helpers.callTool("export-footprints", {
       evidenceIds: [ids[0], ids[2]],
     });
 
-    expect(exportResult.structuredContent.footprintCount).toBe(2);
+    expect(exportResult.structuredContent.evidenceCount).toBe(2);
   });
 
   it("should handle errors gracefully", async () => {
     // Try to get non-existent evidence
     await expect(
       helpers.callTool("get-footprint", { id: "nonexistent-id" }),
-    ).rejects.toThrow("Footprint not found");
+    ).rejects.toThrow("Evidence not found");
 
     // Try to export non-existent evidence
     await expect(
       helpers.callTool("export-footprints", { evidenceIds: ["bad-id"] }),
-    ).rejects.toThrow("Footprint IDs not found");
+    ).rejects.toThrow("Evidence IDs not found");
   });
 });

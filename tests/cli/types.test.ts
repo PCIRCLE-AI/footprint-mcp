@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type {
-  SetupConfig,
-  SystemInfo,
-  ClaudeConfig,
-} from "../../src/cli/types.js";
+import type { SetupConfig, SystemInfo } from "../../src/cli/types.js";
 
 describe("CLI Types", () => {
   it("should accept valid SetupConfig", () => {

@@ -1,21 +1,24 @@
 import { App } from "@modelcontextprotocol/ext-apps";
+import { getIntlLocale, initPageI18n, t } from "./i18n";
 
 const app = new App({
   name: "Footprint Dashboard",
   version: "1.1.1",
 });
 
+initPageI18n();
+
 let lastDashboardData: DashboardData | null = null;
 let activeTagFilters: Set<string> = new Set();
-let filterMode: 'AND' | 'OR' = 'AND';
-let allFootprints: Footprint[] = [];
+let filterMode: "AND" | "OR" = "AND";
+let allEvidences: Evidence[] = [];
 let lastActivityCheck: Date | null = null;
 let pollingInterval: number | null = null;
 let isConnected = false;
-let selectedFootprintIds: Set<string> = new Set();
-let searchQuery: string = '';
+let selectedEvidenceIds: Set<string> = new Set();
+let searchQuery: string = "";
 
-interface Footprint {
+interface Evidence {
   id: string;
   conversationId: string;
   timestamp: string;
@@ -27,7 +30,7 @@ interface Footprint {
 }
 
 interface DashboardData {
-  footprints: Footprint[];
+  evidences: Evidence[];
   total?: number;
   todayCount?: number;
   totalSize?: number;
@@ -37,41 +40,87 @@ interface DashboardData {
 interface TimelinePoint {
   date: string;
   count: number;
-  footprints: Footprint[];
+  evidences: Evidence[];
+}
+
+declare global {
+  interface Window {
+    editTag: typeof editTag;
+    deleteTag: typeof deleteTag;
+  }
 }
 
 function formatSize(bytes: number): string {
-  const units = ['B', 'KB', 'MB', 'GB'];
+  const units = ["B", "KB", "MB", "GB"];
   let size = bytes;
   let unitIndex = 0;
-  
+
   while (size >= 1024 && unitIndex < units.length - 1) {
     size /= 1024;
     unitIndex++;
   }
-  
+
   return `${size.toFixed(1)}${units[unitIndex]}`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function escapeForJsString(value: string): string {
+  return value.replaceAll("\\", "\\\\").replaceAll("'", "\\'");
 }
 
 function formatDate(timestamp: string): string {
   try {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(timestamp).toLocaleString(getIntlLocale(), {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   } catch {
     return timestamp;
   }
 }
 
+function formatRecordCount(count: number): string {
+  return t(count === 1 ? "common.savedRecord" : "common.savedRecords", {
+    count,
+  });
+}
+
+function formatRelativeTime(timestamp: string): string {
+  try {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return t("common.justNow");
+    if (minutes < 60) return t("common.minutesAgo", { count: minutes });
+    if (hours < 24) return t("common.hoursAgo", { count: hours });
+    if (days < 7) return t("common.daysAgo", { count: days });
+    return date.toLocaleDateString(getIntlLocale());
+  } catch {
+    return t("common.notAvailable");
+  }
+}
+
 // Tag Management Functions
-function getAllTags(footprints: Footprint[]): string[] {
+function getAllTags(evidences: Evidence[]): string[] {
   const tagSet = new Set<string>();
-  footprints.forEach(footprint => {
-    footprint.tags?.forEach(tag => tagSet.add(tag));
+  evidences.forEach((evidence) => {
+    evidence.tags?.forEach((tag) => tagSet.add(tag));
   });
   return Array.from(tagSet).sort();
 }
@@ -83,54 +132,76 @@ function getTagColor(tag: string): string {
     hash = tag.charCodeAt(i) + ((hash << 5) - hash);
   }
   const colors = [
-    '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
-    '#06b6d4', '#f97316', '#84cc16', '#ec4899', '#6366f1'
+    "#3b82f6",
+    "#ef4444",
+    "#10b981",
+    "#f59e0b",
+    "#8b5cf6",
+    "#06b6d4",
+    "#f97316",
+    "#84cc16",
+    "#ec4899",
+    "#6366f1",
   ];
   return colors[Math.abs(hash) % colors.length];
 }
 
-function createTagChip(tag: string, options: {
-  isActive?: boolean;
-  isClickable?: boolean;
-  showClose?: boolean;
-  color?: string;
-} = {}): string {
-  const { isActive = false, isClickable = true, showClose = false, color } = options;
+function createTagChip(
+  tag: string,
+  options: {
+    isActive?: boolean;
+    isClickable?: boolean;
+    showClose?: boolean;
+    color?: string;
+  } = {},
+): string {
+  const {
+    isActive = false,
+    isClickable = true,
+    showClose = false,
+    color,
+  } = options;
   const chipColor = color || getTagColor(tag);
-  const classes = `tag-chip ${isActive ? 'active' : ''} ${isClickable ? 'clickable' : ''}`;
-  const style = isActive ? '' : `border-color: ${chipColor}20; background: ${chipColor}10; color: ${chipColor}`;
-  const closeButton = showClose ? `<span class="tag-close" data-tag="${tag}">&times;</span>` : '';
-  
-  return `<span class="${classes}" data-tag="${tag}" style="${style}">${tag}${closeButton}</span>`;
+  const classes = `tag-chip ${isActive ? "active" : ""} ${isClickable ? "clickable" : ""}`;
+  const style = isActive
+    ? ""
+    : `border-color: ${chipColor}20; background: ${chipColor}10; color: ${chipColor}`;
+  const closeButton = showClose
+    ? `<span class="tag-close" data-tag="${escapeHtml(tag)}">&times;</span>`
+    : "";
+
+  return `<span class="${classes}" data-tag="${escapeHtml(tag)}" style="${style}">${escapeHtml(tag)}${closeButton}</span>`;
 }
 
-function filterFootprints(footprints: Footprint[]): Footprint[] {
-  let filtered = footprints;
+function filterEvidences(evidences: Evidence[]): Evidence[] {
+  let filtered = evidences;
 
   // Apply search filter
   if (searchQuery.trim()) {
     const query = searchQuery.toLowerCase().trim();
-    filtered = filtered.filter(footprint => {
+    filtered = filtered.filter((evidence) => {
       const searchableText = [
-        footprint.id,
-        footprint.conversationId,
-        footprint.llmProvider,
-        ...(footprint.tags || [])
-      ].join(' ').toLowerCase();
+        evidence.id,
+        evidence.conversationId,
+        evidence.llmProvider,
+        ...(evidence.tags || []),
+      ]
+        .join(" ")
+        .toLowerCase();
       return searchableText.includes(query);
     });
   }
 
   // Apply tag filter
   if (activeTagFilters.size > 0) {
-    filtered = filtered.filter(footprint => {
-      const footprintTags = footprint.tags || [];
+    filtered = filtered.filter((evidence) => {
+      const evidenceTags = evidence.tags || [];
       const filterTags = Array.from(activeTagFilters);
 
-      if (filterMode === 'AND') {
-        return filterTags.every(tag => footprintTags.includes(tag));
+      if (filterMode === "AND") {
+        return filterTags.every((tag) => evidenceTags.includes(tag));
       } else {
-        return filterTags.some(tag => footprintTags.includes(tag));
+        return filterTags.some((tag) => evidenceTags.includes(tag));
       }
     });
   }
@@ -140,59 +211,69 @@ function filterFootprints(footprints: Footprint[]): Footprint[] {
 
 // Search highlighting function
 function highlightText(text: string, query: string): string {
-  if (!query.trim()) return text;
-  
-  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(${escapedQuery})`, 'gi');
-  return text.replace(regex, '<span class="highlight">$1</span>');
+  const safeText = escapeHtml(text);
+  if (!query.trim()) return safeText;
+
+  const escapedQuery = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(`(${escapedQuery})`, "gi");
+  return safeText.replace(regex, '<span class="highlight">$1</span>');
 }
 
 // Update search results info
 function updateSearchInfo(totalCount: number, filteredCount: number) {
-  const info = document.getElementById('search-results-info');
+  const info = document.getElementById("search-results-info");
   if (!info) return;
 
   if (searchQuery.trim()) {
     if (filteredCount === 0) {
-      info.textContent = `No results found for "${searchQuery}"`;
+      info.textContent = t("evidenceDashboard.search.noResults", {
+        query: searchQuery,
+      });
     } else if (filteredCount < totalCount) {
-      info.textContent = `Showing ${filteredCount} of ${totalCount} footprints (filtered by search)`;
+      info.textContent = t("evidenceDashboard.search.showingSome", {
+        shown: filteredCount,
+        total: totalCount,
+      });
     } else {
-      info.textContent = `${filteredCount} results`;
+      info.textContent = t("evidenceDashboard.search.results", {
+        count: filteredCount,
+      });
     }
   } else {
-    info.textContent = '';
+    info.textContent = "";
   }
 }
 
 function updateTagFilters() {
-  const container = document.getElementById('tag-filter-chips');
-  const clearBtn = document.getElementById('clear-filters-btn');
+  const container = document.getElementById("tag-filter-chips");
+  const clearBtn = document.getElementById("clear-filters-btn");
 
   if (!container || !clearBtn) return;
 
-  const allTags = getAllTags(allFootprints);
+  const allTags = getAllTags(allEvidences);
 
-  container.innerHTML = allTags.map(tag =>
-    createTagChip(tag, {
-      isActive: activeTagFilters.has(tag),
-      showClose: activeTagFilters.has(tag)
-    })
-  ).join('');
+  container.innerHTML = allTags
+    .map((tag) =>
+      createTagChip(tag, {
+        isActive: activeTagFilters.has(tag),
+        showClose: activeTagFilters.has(tag),
+      }),
+    )
+    .join("");
 
-  clearBtn.style.display = activeTagFilters.size > 0 ? 'block' : 'none';
+  clearBtn.style.display = activeTagFilters.size > 0 ? "block" : "none";
 
   // Add click listeners
-  container.addEventListener('click', (e) => {
+  container.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
-    if (target.classList.contains('tag-close')) {
-      const tag = target.getAttribute('data-tag');
+    if (target.classList.contains("tag-close")) {
+      const tag = target.getAttribute("data-tag");
       if (tag) {
         activeTagFilters.delete(tag);
         updateView();
       }
-    } else if (target.classList.contains('tag-chip')) {
-      const tag = target.getAttribute('data-tag');
+    } else if (target.classList.contains("tag-chip")) {
+      const tag = target.getAttribute("data-tag");
       if (tag) {
         toggleTagFilter(tag);
       }
@@ -210,115 +291,145 @@ function toggleTagFilter(tag: string) {
 }
 
 function updateView() {
-  if (!allFootprints.length) return;
+  if (!allEvidences.length) return;
 
-  const filteredFootprints = filterFootprints(allFootprints);
-  renderTable(filteredFootprints);
-  renderTimeline(filteredFootprints);
-  updateStats({ footprints: filteredFootprints });
+  const filteredEvidences = filterEvidences(allEvidences);
+  renderTable(filteredEvidences);
+  renderTimeline(filteredEvidences);
+  updateStats({ evidences: filteredEvidences });
   updateTagFilters();
 }
 
 // Modal Management Functions
 function showTagModal() {
-  const modal = document.getElementById('tag-modal');
-  const tagList = document.getElementById('tag-list');
+  const modal = document.getElementById("tag-modal");
+  const tagList = document.getElementById("tag-list");
   if (!modal || !tagList) return;
-  
-  modal.classList.add('show');
+
+  modal.classList.add("show");
   renderTagList();
 }
 
 function hideTagModal() {
-  const modal = document.getElementById('tag-modal');
+  const modal = document.getElementById("tag-modal");
   if (modal) {
-    modal.classList.remove('show');
+    modal.classList.remove("show");
   }
 }
 
 function renderTagList() {
-  const tagList = document.getElementById('tag-list');
+  const tagList = document.getElementById("tag-list");
   if (!tagList) return;
 
-  const allTags = getAllTags(allFootprints);
+  const allTags = getAllTags(allEvidences);
   if (allTags.length === 0) {
-    tagList.innerHTML = '<div class="no-tags">No tags found</div>';
+    tagList.innerHTML = `<div class="no-tags">${escapeHtml(t("evidenceDashboard.labels.none"))}</div>`;
     return;
   }
 
   // Calculate tag counts
   const tagCounts = new Map<string, number>();
-  allFootprints.forEach(footprint => {
-    footprint.tags?.forEach(tag => {
+  allEvidences.forEach((evidence) => {
+    evidence.tags?.forEach((tag) => {
       tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
     });
   });
 
-  tagList.innerHTML = allTags.map(tag => {
-    const count = tagCounts.get(tag) || 0;
-    const color = getTagColor(tag);
-    return `
+  tagList.innerHTML = allTags
+    .map((tag) => {
+      const count = tagCounts.get(tag) || 0;
+      const color = getTagColor(tag);
+      return `
       <div class="tag-item">
         <div class="tag-item-info">
           ${createTagChip(tag, { isClickable: false, color })}
           <span class="tag-count">${count}</span>
         </div>
         <div class="tag-item-actions">
-          <button class="btn-sm" onclick="editTag('${tag.replace(/'/g, "\\'")}')">Rename</button>
-          <button class="btn-sm danger" onclick="deleteTag('${tag.replace(/'/g, "\\'")}')">Delete</button>
+          <button class="btn-sm" data-action="rename-label" data-tag="${escapeHtml(tag)}" onclick="editTag('${escapeForJsString(tag)}')">${escapeHtml(t("evidenceDashboard.labels.rename"))}</button>
+          <button class="btn-sm danger" data-action="delete-label" data-tag="${escapeHtml(tag)}" onclick="deleteTag('${escapeForJsString(tag)}')">${escapeHtml(t("evidenceDashboard.labels.delete"))}</button>
         </div>
       </div>
     `;
-  }).join('');
+    })
+    .join("");
 }
 
 async function editTag(oldTag: string) {
-  const newTag = prompt(`Rename tag "${oldTag}" to:`, oldTag);
+  const newTag = prompt(
+    t("evidenceDashboard.labels.renamePrompt", { tag: oldTag }),
+    oldTag,
+  );
   if (newTag && newTag.trim() && newTag !== oldTag) {
     try {
       const result = await app.callServerTool({
-        name: 'manage-tags',
-        arguments: { action: 'rename', oldTag, newTag: newTag.trim() }
+        name: "rename-tag",
+        arguments: { oldTag, newTag: newTag.trim() },
       });
 
-      const structuredContent = result.structuredContent as { updatedCount: number; success: boolean } | undefined;
+      const structuredContent = result.structuredContent as
+        | { updatedCount: number; success: boolean }
+        | undefined;
 
       if (structuredContent?.success) {
-        alert(`Renamed tag "${oldTag}" to "${newTag.trim()}" in ${structuredContent.updatedCount} footprint(s)`);
+        alert(
+          t("evidenceDashboard.labels.renameSuccess", {
+            oldTag,
+            newTag: newTag.trim(),
+            count: structuredContent.updatedCount,
+          }),
+        );
         // Refresh data to show updated tags
         await refreshData();
         renderTagList();
       } else {
-        alert(`No footprint found with tag "${oldTag}"`);
+        alert(t("evidenceDashboard.labels.renameNoMatch", { tag: oldTag }));
       }
     } catch (error) {
-      console.error('Failed to rename tag:', error);
-      alert(`Failed to rename tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Failed to rename tag:", error);
+      alert(
+        t("evidenceDashboard.labels.renameFailed", {
+          message:
+            error instanceof Error ? error.message : t("common.unknownError"),
+        }),
+      );
     }
   }
 }
 
 async function deleteTag(tag: string) {
-  if (confirm(`Delete tag "${tag}" from all footprints? This cannot be undone.`)) {
+  if (confirm(t("evidenceDashboard.labels.deleteConfirm", { tag }))) {
     try {
       const result = await app.callServerTool({
-        name: 'manage-tags',
-        arguments: { action: 'remove', tag }
+        name: "remove-tag",
+        arguments: { tag },
       });
 
-      const structuredContent = result.structuredContent as { updatedCount: number; success: boolean } | undefined;
+      const structuredContent = result.structuredContent as
+        | { updatedCount: number; success: boolean }
+        | undefined;
 
       if (structuredContent?.success) {
-        alert(`Removed tag "${tag}" from ${structuredContent.updatedCount} footprint(s)`);
+        alert(
+          t("evidenceDashboard.labels.deleteSuccess", {
+            tag,
+            count: structuredContent.updatedCount,
+          }),
+        );
         // Refresh data to show updated tags
         await refreshData();
         renderTagList();
       } else {
-        alert(`No footprint found with tag "${tag}"`);
+        alert(t("evidenceDashboard.labels.deleteNoMatch", { tag }));
       }
     } catch (error) {
-      console.error('Failed to delete tag:', error);
-      alert(`Failed to delete tag: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Failed to delete tag:", error);
+      alert(
+        t("evidenceDashboard.labels.deleteFailed", {
+          message:
+            error instanceof Error ? error.message : t("common.unknownError"),
+        }),
+      );
     }
   }
 }
@@ -330,82 +441,103 @@ function updateStats(data: DashboardData) {
   const tagElement = document.getElementById("tag-count");
 
   if (totalElement) {
-    totalElement.textContent = String(data.total ?? data.footprints?.length ?? 0);
+    totalElement.textContent = String(
+      data.total ?? data.evidences?.length ?? 0,
+    );
   }
 
   if (todayElement) {
     const today = new Date().toDateString();
-    const todayCount = data.footprints?.filter(fp =>
-      new Date(fp.timestamp).toDateString() === today
-    ).length ?? 0;
+    const todayCount =
+      data.evidences?.filter(
+        (e) => new Date(e.timestamp).toDateString() === today,
+      ).length ?? 0;
     todayElement.textContent = String(data.todayCount ?? todayCount);
   }
 
   if (sizeElement) {
-    const totalSize = data.totalSize ??
-      data.footprints?.reduce((sum, fp) => sum + (fp.size ?? 0), 0) ?? 0;
+    const totalSize =
+      data.totalSize ??
+      data.evidences?.reduce((sum, e) => sum + (e.size ?? 0), 0) ??
+      0;
     sizeElement.textContent = formatSize(totalSize);
   }
 
   if (tagElement) {
-    const uniqueTags = new Set(data.footprints?.flatMap(fp => fp.tags) ?? []);
+    const uniqueTags = new Set(data.evidences?.flatMap((e) => e.tags) ?? []);
     tagElement.textContent = String(data.tagCount ?? uniqueTags.size);
   }
 }
 
-function renderTable(footprints: Footprint[]) {
-  const tbody = document.querySelector("#footprint-table tbody");
+function renderTable(evidences: Evidence[]) {
+  const tbody = document.querySelector("#evidence-table tbody");
   if (!tbody) return;
 
   // Update search results info
-  updateSearchInfo(allFootprints.length, footprints.length);
+  updateSearchInfo(allEvidences.length, evidences.length);
 
-  if (!footprints || footprints.length === 0) {
-    let noResultsMessage = 'No footprints found';
+  if (!evidences || evidences.length === 0) {
+    let noResultsMessage = t("evidenceDashboard.records.empty");
     if (searchQuery.trim()) {
-      noResultsMessage = `No footprints match "${searchQuery}"`;
+      noResultsMessage = t("evidenceDashboard.records.emptySearch", {
+        query: searchQuery,
+      });
     } else if (activeTagFilters.size > 0) {
-      noResultsMessage = `No footprints match the selected tag${activeTagFilters.size > 1 ? 's' : ''}: ${Array.from(activeTagFilters).join(', ')}`;
+      noResultsMessage = t("evidenceDashboard.records.emptyLabels", {
+        labels: Array.from(activeTagFilters).join(", "),
+      });
     }
     tbody.innerHTML = `
       <tr>
-        <td colspan="5" class="loading">${noResultsMessage}</td>
+        <td colspan="5" class="loading">${escapeHtml(noResultsMessage)}</td>
       </tr>
     `;
     return;
   }
 
-  tbody.innerHTML = footprints.map(fp => {
-    const tagChips = fp.tags?.length
-      ? fp.tags.map(tag => createTagChip(tag, { isClickable: true })).join(' ')
-      : '<span style="color: #9ca3af; font-style: italic;">No tags</span>';
+  tbody.innerHTML = evidences
+    .map((e) => {
+      const tagChips = e.tags?.length
+        ? e.tags
+            .map((tag) => createTagChip(tag, { isClickable: true }))
+            .join(" ")
+        : `<span class="muted">${escapeHtml(t("evidenceDetail.labels.none"))}</span>`;
 
-    // Apply highlighting to searchable fields
-    const displayId = highlightText(fp.id.slice(0, 8), searchQuery) + '...';
-    const displayConversationId = highlightText(fp.conversationId || 'N/A', searchQuery);
-    const displayProvider = searchQuery.trim() ? highlightText(fp.llmProvider || '', searchQuery) : '';
+      // Apply highlighting to searchable fields
+      const displayId = highlightText(e.id.slice(0, 8), searchQuery) + "...";
+      const displayConversationId = highlightText(
+        e.conversationId || t("common.notAvailable"),
+        searchQuery,
+      );
+      const displayProvider = searchQuery.trim()
+        ? highlightText(e.llmProvider || "", searchQuery)
+        : "";
 
-    return `
-      <tr data-footprint-id="${fp.id}">
+      return `
+      <tr data-evidence-id="${escapeHtml(e.id)}">
         <td class="checkbox-cell">
-          <input type="checkbox" class="footprint-checkbox" value="${fp.id}" ${selectedFootprintIds.has(fp.id) ? 'checked' : ''}>
+          <input type="checkbox" class="evidence-checkbox" value="${escapeHtml(e.id)}" ${selectedEvidenceIds.has(e.id) ? "checked" : ""}>
         </td>
-        <td title="${fp.id}">${displayId}</td>
-        <td>${displayConversationId}${displayProvider ? ` <small style="color:#6b7280">(${displayProvider})</small>` : ''}</td>
-        <td>${formatDate(fp.timestamp)}</td>
+        <td title="${escapeHtml(e.id)}">${displayId}</td>
+        <td>${displayConversationId}${displayProvider ? ` <small class="muted">(${displayProvider})</small>` : ""}</td>
+        <td>${formatDate(e.timestamp)}</td>
         <td class="tag-cell">${tagChips}</td>
       </tr>
     `;
-  }).join("");
+    })
+    .join("");
 
   // Re-attach event listeners for checkboxes
-  setupFootprintCheckboxes();
+  setupEvidenceCheckboxes();
 
   // Add click listeners for tag chips in table
-  tbody.addEventListener('click', (e) => {
+  tbody.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
-    if (target.classList.contains('tag-chip') && target.classList.contains('clickable')) {
-      const tag = target.getAttribute('data-tag');
+    if (
+      target.classList.contains("tag-chip") &&
+      target.classList.contains("clickable")
+    ) {
+      const tag = target.getAttribute("data-tag");
       if (tag) {
         toggleTagFilter(tag);
       }
@@ -414,152 +546,170 @@ function renderTable(footprints: Footprint[]) {
 }
 
 function getTimelinePeriod(): string {
-  const activeBtn = document.querySelector('.timeline-btn.active');
-  return activeBtn?.getAttribute('data-period') || '7d';
+  const activeBtn = document.querySelector(".timeline-btn.active");
+  return activeBtn?.getAttribute("data-period") || "7d";
 }
 
-function filterFootprintsByPeriod(footprints: Footprint[], period: string): Footprint[] {
-  if (period === 'all') return footprints;
+function filterEvidencesByPeriod(
+  evidences: Evidence[],
+  period: string,
+): Evidence[] {
+  if (period === "all") return evidences;
 
   const now = new Date();
-  const days = parseInt(period.replace('d', ''));
-  const cutoff = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
+  const days = parseInt(period.replace("d", ""));
+  const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
-  return footprints.filter(fp => {
+  return evidences.filter((e) => {
     try {
-      return new Date(fp.timestamp) >= cutoff;
+      return new Date(e.timestamp) >= cutoff;
     } catch {
       return false;
     }
   });
 }
 
-function groupFootprintsByDate(footprints: Footprint[]): TimelinePoint[] {
-  const groups = new Map<string, Footprint[]>();
+function groupEvidencesByDate(evidences: Evidence[]): TimelinePoint[] {
+  const groups = new Map<string, Evidence[]>();
 
-  footprints.forEach(footprint => {
+  evidences.forEach((evidence) => {
     try {
-      const date = new Date(footprint.timestamp).toISOString().split('T')[0];
+      const date = new Date(evidence.timestamp).toISOString().split("T")[0];
       if (!groups.has(date)) {
         groups.set(date, []);
       }
-      groups.get(date)!.push(footprint);
+      groups.get(date)!.push(evidence);
     } catch {
       // Skip invalid timestamps
     }
   });
 
   return Array.from(groups.entries())
-    .map(([date, footprints]) => ({
+    .map(([date, evidences]) => ({
       date,
-      count: footprints.length,
-      footprints
+      count: evidences.length,
+      evidences,
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function renderTimeline(footprints: Footprint[]) {
-  const timeline = document.getElementById('timeline');
-  const timelineLoading = document.getElementById('timeline-loading');
+function renderTimeline(evidences: Evidence[]) {
+  const timeline = document.getElementById("timeline");
+  const timelineLoading = document.getElementById("timeline-loading");
 
   if (!timeline || !timelineLoading) return;
 
   const period = getTimelinePeriod();
-  const filteredFootprints = filterFootprintsByPeriod(footprints, period);
-  const timelinePoints = groupFootprintsByDate(filteredFootprints);
+  const filteredEvidences = filterEvidencesByPeriod(evidences, period);
+  const timelinePoints = groupEvidencesByDate(filteredEvidences);
 
-  timelineLoading.style.display = 'none';
+  timelineLoading.style.display = "none";
 
   // Clear existing timeline points
-  const existingPoints = timeline.querySelectorAll('.timeline-point, .timeline-label, .timeline-tooltip');
-  existingPoints.forEach(el => el.remove());
+  const existingPoints = timeline.querySelectorAll(
+    ".timeline-point, .timeline-label, .timeline-tooltip",
+  );
+  existingPoints.forEach((el) => el.remove());
 
   if (timelinePoints.length === 0) {
-    timeline.innerHTML = '<div class="timeline-axis"></div><div style="text-align: center; padding: 2rem; color: #6b7280;">No footprints in this time period</div>';
+    timeline.innerHTML = `<div class="timeline-axis"></div><div class="loading" style="height: auto; padding: 2rem;">${escapeHtml(t("evidenceDashboard.timeline.empty"))}</div>`;
     return;
   }
-  
+
   // Calculate positions
   const containerWidth = timeline.clientWidth || 800;
   const margin = 40;
-  const availableWidth = containerWidth - (margin * 2);
-  
+  const availableWidth = containerWidth - margin * 2;
+
   // Determine date range
   let startDate: Date, endDate: Date;
-  
-  if (period === 'all') {
+
+  if (period === "all") {
     startDate = new Date(timelinePoints[0].date);
     endDate = new Date(timelinePoints[timelinePoints.length - 1].date);
   } else {
     const now = new Date();
-    const days = parseInt(period.replace('d', ''));
-    startDate = new Date(now.getTime() - (days * 24 * 60 * 60 * 1000));
+    const days = parseInt(period.replace("d", ""));
+    startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
     endDate = now;
   }
-  
+
   const timeRange = endDate.getTime() - startDate.getTime();
-  
-  timelinePoints.forEach(point => {
+
+  timelinePoints.forEach((point) => {
     const pointDate = new Date(point.date);
-    const relativePosition = (pointDate.getTime() - startDate.getTime()) / timeRange;
-    const x = margin + (relativePosition * availableWidth);
-    
+    const relativePosition =
+      (pointDate.getTime() - startDate.getTime()) / timeRange;
+    const x = margin + relativePosition * availableWidth;
+
     // Create timeline point
-    const pointElement = document.createElement('div');
-    pointElement.className = `timeline-point ${point.count > 1 ? 'multiple' : ''}`;
+    const pointElement = document.createElement("div");
+    pointElement.className = `timeline-point ${point.count > 1 ? "multiple" : ""}`;
     pointElement.style.left = `${x}px`;
-    
+
     // Create label
-    const labelElement = document.createElement('div');
-    labelElement.className = 'timeline-label';
+    const labelElement = document.createElement("div");
+    labelElement.className = "timeline-label";
     labelElement.style.left = `${x}px`;
-    
-    if (period === '7d') {
-      labelElement.textContent = pointDate.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
-    } else if (period === '30d') {
-      labelElement.textContent = pointDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    if (period === "7d") {
+      labelElement.textContent = pointDate.toLocaleDateString(getIntlLocale(), {
+        weekday: "short",
+        month: "numeric",
+        day: "numeric",
+      });
+    } else if (period === "30d") {
+      labelElement.textContent = pointDate.toLocaleDateString(getIntlLocale(), {
+        month: "short",
+        day: "numeric",
+      });
     } else {
-      labelElement.textContent = pointDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      labelElement.textContent = pointDate.toLocaleDateString(getIntlLocale(), {
+        month: "short",
+        year: "2-digit",
+      });
     }
-    
+
     // Create tooltip
-    const tooltipElement = document.createElement('div');
-    tooltipElement.className = 'timeline-tooltip';
+    const tooltipElement = document.createElement("div");
+    tooltipElement.className = "timeline-tooltip";
     tooltipElement.style.left = `${x}px`;
 
     if (point.count === 1) {
-      const footprint = point.footprints[0];
+      const evidence = point.evidences[0];
       tooltipElement.innerHTML = `
-        <div><strong>${footprint.conversationId}</strong></div>
-        <div>${footprint.llmProvider}</div>
-        <div>${point.count} footprint</div>
+        <div><strong>${escapeHtml(evidence.conversationId || t("common.savedRecord", { count: 1 }))}</strong></div>
+        <div>${escapeHtml(evidence.llmProvider || t("common.unknownAi"))}</div>
+        <div>${escapeHtml(formatRecordCount(point.count))}</div>
       `;
     } else {
       tooltipElement.innerHTML = `
-        <div><strong>${point.count} footprints</strong></div>
-        <div>${pointDate.toLocaleDateString()}</div>
-        <div>Click to view details</div>
+        <div><strong>${escapeHtml(formatRecordCount(point.count))}</strong></div>
+        <div>${escapeHtml(pointDate.toLocaleDateString(getIntlLocale()))}</div>
+        <div>${escapeHtml(t("evidenceDashboard.timeline.clickHint"))}</div>
       `;
     }
 
     // Add hover events
-    pointElement.addEventListener('mouseenter', () => {
-      tooltipElement.style.display = 'block';
+    pointElement.addEventListener("mouseenter", () => {
+      tooltipElement.style.display = "block";
     });
 
-    pointElement.addEventListener('mouseleave', () => {
-      tooltipElement.style.display = 'none';
+    pointElement.addEventListener("mouseleave", () => {
+      tooltipElement.style.display = "none";
     });
 
     // Add click event to filter table
-    pointElement.addEventListener('click', () => {
-      renderTable(point.footprints);
-      
+    pointElement.addEventListener("click", () => {
+      renderTable(point.evidences);
+
       // Visual feedback
-      document.querySelectorAll('.timeline-point').forEach(p => p.style.boxShadow = '0 0 0 1px #e5e7eb');
-      pointElement.style.boxShadow = '0 0 0 2px #2563eb';
+      document
+        .querySelectorAll(".timeline-point")
+        .forEach((p) => (p.style.boxShadow = "0 0 0 1px #e5e7eb"));
+      pointElement.style.boxShadow = "0 0 0 2px #2563eb";
     });
-    
+
     timeline.appendChild(pointElement);
     timeline.appendChild(labelElement);
     timeline.appendChild(tooltipElement);
@@ -567,102 +717,95 @@ function renderTimeline(footprints: Footprint[]) {
 }
 
 // Recent Activity Functions
-function getRecentFootprints(footprints: Footprint[], count: number = 5): Footprint[] {
-  return footprints
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+function getRecentEvidences(
+  evidences: Evidence[],
+  count: number = 5,
+): Evidence[] {
+  return evidences
+    .sort(
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+    )
     .slice(0, count);
 }
 
-function formatRelativeTime(timestamp: string): string {
-  try {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-    
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    return date.toLocaleDateString();
-  } catch {
-    return 'Unknown';
-  }
-}
-
 function updateLastUpdatedDisplay() {
-  const lastUpdatedText = document.getElementById('last-updated-text');
-  const statusDot = document.getElementById('status-dot');
-  
+  const lastUpdatedText = document.getElementById("last-updated-text");
+  const statusDot = document.getElementById("status-dot");
+
   if (lastUpdatedText && statusDot) {
     const now = new Date();
-    lastUpdatedText.textContent = `Updated ${now.toLocaleTimeString()}`;
-    
+    lastUpdatedText.textContent = t("evidenceDashboard.lastUpdated.time", {
+      value: now.toLocaleTimeString(getIntlLocale()),
+    });
+
     // Update connection status
-    statusDot.className = `status-dot ${isConnected ? '' : 'offline'}`;
+    statusDot.className = `status-dot ${isConnected ? "" : "offline"}`;
   }
 }
 
-function renderRecentActivity(footprints: Footprint[]) {
-  const activityList = document.getElementById('activity-list');
-  const activityBadge = document.getElementById('activity-badge');
+function renderRecentActivity(evidences: Evidence[]) {
+  const activityList = document.getElementById("activity-list");
+  const activityBadge = document.getElementById("activity-badge");
 
   if (!activityList || !activityBadge) return;
 
-  const recentFootprints = getRecentFootprints(footprints);
+  const recentEvidences = getRecentEvidences(evidences);
 
-  if (recentFootprints.length === 0) {
+  if (recentEvidences.length === 0) {
     activityList.innerHTML = `
-      <li class="empty-activity">No recent activity</li>
+      <li class="empty-activity">${escapeHtml(t("evidenceDashboard.latestCaptures.empty"))}</li>
     `;
-    activityBadge.textContent = '0';
+    activityBadge.textContent = "0";
     return;
   }
 
   // Calculate new items since last check
-  const newItemsCount = lastActivityCheck ?
-    recentFootprints.filter(fp => new Date(fp.timestamp) > lastActivityCheck!).length : 0;
+  const newItemsCount = lastActivityCheck
+    ? recentEvidences.filter((e) => new Date(e.timestamp) > lastActivityCheck!)
+        .length
+    : 0;
 
   // Update badge
-  activityBadge.textContent = recentFootprints.length.toString();
+  activityBadge.textContent = recentEvidences.length.toString();
   if (newItemsCount > 0) {
-    activityBadge.classList.add('pulse');
-    setTimeout(() => activityBadge.classList.remove('pulse'), 3000);
+    activityBadge.classList.add("pulse");
+    setTimeout(() => activityBadge.classList.remove("pulse"), 3000);
   }
 
   // Render activity items
-  activityList.innerHTML = recentFootprints.map((footprint, index) => {
-    const isNewItem = lastActivityCheck && new Date(footprint.timestamp) > lastActivityCheck;
-    return `
-      <li class="activity-item ${isNewItem ? 'new-item' : ''}" data-footprint-id="${footprint.id}">
+  activityList.innerHTML = recentEvidences
+    .map((evidence) => {
+      const isNewItem =
+        lastActivityCheck && new Date(evidence.timestamp) > lastActivityCheck;
+      return `
+      <li class="activity-item ${isNewItem ? "new-item" : ""}" data-evidence-id="${escapeHtml(evidence.id)}">
         <div class="activity-content">
-          <div class="activity-title-text">${footprint.conversationId || footprint.id.slice(0, 12)}</div>
+          <div class="activity-title-text">${escapeHtml(evidence.conversationId || evidence.id.slice(0, 12))}</div>
           <div class="activity-meta">
-            ${footprint.llmProvider} • ${footprint.tags?.join(', ') || 'No tags'}
+            ${escapeHtml(evidence.llmProvider || t("common.unknownAi"))} • ${escapeHtml(evidence.tags?.join(", ") || t("evidenceDetail.labels.none"))}
           </div>
         </div>
-        <div class="activity-time">${formatRelativeTime(footprint.timestamp)}</div>
+        <div class="activity-time">${formatRelativeTime(evidence.timestamp)}</div>
       </li>
     `;
-  }).join('');
+    })
+    .join("");
 
   // Add click handlers for activity items
-  activityList.querySelectorAll('.activity-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const footprintId = item.getAttribute('data-footprint-id');
-      if (footprintId) {
-        // Scroll to footprint in table and highlight it
-        const tableRows = document.querySelectorAll('#footprint-table tbody tr');
-        tableRows.forEach(row => {
-          const cellText = row.firstElementChild?.textContent || '';
-          if (cellText.includes(footprintId.slice(0, 8))) {
-            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            row.style.backgroundColor = '#eff6ff';
+  activityList.querySelectorAll(".activity-item").forEach((item) => {
+    item.addEventListener("click", () => {
+      const evidenceId = item.getAttribute("data-evidence-id");
+      if (evidenceId) {
+        // Scroll to evidence in table and highlight it
+        const tableRows = document.querySelectorAll("#evidence-table tbody tr");
+        tableRows.forEach((row) => {
+          const cellText = row.firstElementChild?.textContent || "";
+          if (cellText.includes(evidenceId.slice(0, 8))) {
+            row.scrollIntoView({ behavior: "smooth", block: "center" });
+            row.style.backgroundColor = "#eff6ff";
             setTimeout(() => {
-              row.style.backgroundColor = '';
+              row.style.backgroundColor = "";
             }, 2000);
           }
         });
@@ -676,38 +819,38 @@ function renderRecentActivity(footprints: Footprint[]) {
 // Real-time update functionality
 async function refreshData() {
   try {
-    // Call the list-footprints tool to get fresh data
+    // Call the list-evidences tool to get fresh data
     const result = await app.callServerTool({
-      name: "list-footprints",
-      arguments: { limit: 100, offset: 0 }
+      name: "list-evidences",
+      arguments: { limit: 100, offset: 0 },
     });
 
     if (result && result.content) {
-      const textContent = result.content.find(c => c.type === "text")?.text;
+      const textContent = result.content.find((c) => c.type === "text")?.text;
       if (textContent) {
         const data: DashboardData = JSON.parse(textContent);
 
-        // Check for new footprints since last update
-        if (lastDashboardData && data.footprints) {
-          const newFootprints = data.footprints.filter(newFootprint => {
-            return !lastDashboardData!.footprints.some(oldFootprint =>
-              oldFootprint.id === newFootprint.id
+        // Check for new evidence since last update
+        if (lastDashboardData && data.evidences) {
+          const newEvidences = data.evidences.filter((newEvidence) => {
+            return !lastDashboardData!.evidences.some(
+              (oldEvidence) => oldEvidence.id === newEvidence.id,
             );
           });
 
-          if (newFootprints.length > 0) {
-            console.log(`Found ${newFootprints.length} new footprints`);
-            // Show notification or visual indicator for new footprints
-            showNewFootprintNotification(newFootprints.length);
+          if (newEvidences.length > 0) {
+            console.log(`Found ${newEvidences.length} new evidence items`);
+            // Show notification or visual indicator for new evidence
+            showNewEvidenceNotification(newEvidences.length);
           }
         }
 
         lastDashboardData = data;
 
-        if (data.footprints) {
-          renderTable(data.footprints);
-          renderTimeline(data.footprints);
-          renderRecentActivity(data.footprints);
+        if (data.evidences) {
+          renderTable(data.evidences);
+          renderTimeline(data.evidences);
+          renderRecentActivity(data.evidences);
           updateStats(data);
         }
 
@@ -723,9 +866,9 @@ async function refreshData() {
   }
 }
 
-function showNewFootprintNotification(count: number) {
+function showNewEvidenceNotification(count: number) {
   // Create a temporary notification
-  const notification = document.createElement('div');
+  const notification = document.createElement("div");
   notification.style.cssText = `
     position: fixed;
     top: 20px;
@@ -738,12 +881,14 @@ function showNewFootprintNotification(count: number) {
     z-index: 1000;
     animation: slideIn 0.3s ease-out;
   `;
-  notification.textContent = `${count} new footprint${count > 1 ? 's' : ''} captured!`;
+  notification.textContent = t("evidenceDashboard.notification.newRecords", {
+    count,
+  });
 
   document.body.appendChild(notification);
 
   setTimeout(() => {
-    notification.style.animation = 'slideIn 0.3s ease-out reverse';
+    notification.style.animation = "slideIn 0.3s ease-out reverse";
     setTimeout(() => notification.remove(), 300);
   }, 3000);
 }
@@ -752,10 +897,10 @@ function startPolling() {
   if (pollingInterval) {
     clearInterval(pollingInterval);
   }
-  
+
   // Initial data load
   refreshData();
-  
+
   // Set up polling every 5 seconds
   pollingInterval = window.setInterval(refreshData, 5000);
 }
@@ -768,28 +913,38 @@ function stopPolling() {
 }
 
 function updateSelectionCounter() {
-  const counter = document.getElementById('selection-counter');
-  const exportBtn = document.getElementById('export-selected-btn') as HTMLButtonElement;
-  const deleteBtn = document.getElementById('delete-selected-btn') as HTMLButtonElement;
+  const counter = document.getElementById("selection-counter");
+  const exportBtn = document.getElementById(
+    "export-selected-btn",
+  ) as HTMLButtonElement;
+  const deleteBtn = document.getElementById(
+    "delete-selected-btn",
+  ) as HTMLButtonElement;
 
   if (counter) {
-    const count = selectedFootprintIds.size;
-    counter.textContent = `${count} selected`;
+    const count = selectedEvidenceIds.size;
+    counter.textContent = t("evidenceDashboard.selected.count", { count });
   }
 
   // Enable/disable batch action buttons
-  const hasSelection = selectedFootprintIds.size > 0;
+  const hasSelection = selectedEvidenceIds.size > 0;
   if (exportBtn) exportBtn.disabled = !hasSelection;
   if (deleteBtn) deleteBtn.disabled = !hasSelection;
 }
 
 function updateSelectAllCheckbox() {
-  const selectAllCheckbox = document.getElementById('select-all-checkbox') as HTMLInputElement;
+  const selectAllCheckbox = document.getElementById(
+    "select-all-checkbox",
+  ) as HTMLInputElement;
   if (!selectAllCheckbox) return;
 
-  const footprintCheckboxes = document.querySelectorAll('.footprint-checkbox') as NodeListOf<HTMLInputElement>;
-  const totalCheckboxes = footprintCheckboxes.length;
-  const checkedCheckboxes = Array.from(footprintCheckboxes).filter(cb => cb.checked).length;
+  const evidenceCheckboxes = document.querySelectorAll(
+    ".evidence-checkbox",
+  ) as NodeListOf<HTMLInputElement>;
+  const totalCheckboxes = evidenceCheckboxes.length;
+  const checkedCheckboxes = Array.from(evidenceCheckboxes).filter(
+    (cb) => cb.checked,
+  ).length;
 
   if (checkedCheckboxes === 0) {
     selectAllCheckbox.checked = false;
@@ -803,18 +958,18 @@ function updateSelectAllCheckbox() {
   }
 }
 
-function setupFootprintCheckboxes() {
-  const footprintCheckboxes = document.querySelectorAll('.footprint-checkbox');
+function setupEvidenceCheckboxes() {
+  const evidenceCheckboxes = document.querySelectorAll(".evidence-checkbox");
 
-  footprintCheckboxes.forEach(checkbox => {
-    checkbox.addEventListener('change', (e) => {
+  evidenceCheckboxes.forEach((checkbox) => {
+    checkbox.addEventListener("change", (e) => {
       const target = e.target as HTMLInputElement;
-      const footprintId = target.value;
+      const evidenceId = target.value;
 
       if (target.checked) {
-        selectedFootprintIds.add(footprintId);
+        selectedEvidenceIds.add(evidenceId);
       } else {
-        selectedFootprintIds.delete(footprintId);
+        selectedEvidenceIds.delete(evidenceId);
       }
 
       updateSelectionCounter();
@@ -824,18 +979,20 @@ function setupFootprintCheckboxes() {
 }
 
 function setupSelectAllCheckbox() {
-  const selectAllCheckbox = document.getElementById('select-all-checkbox');
+  const selectAllCheckbox = document.getElementById("select-all-checkbox");
 
-  selectAllCheckbox?.addEventListener('change', (e) => {
+  selectAllCheckbox?.addEventListener("change", (e) => {
     const target = e.target as HTMLInputElement;
-    const footprintCheckboxes = document.querySelectorAll('.footprint-checkbox') as NodeListOf<HTMLInputElement>;
+    const evidenceCheckboxes = document.querySelectorAll(
+      ".evidence-checkbox",
+    ) as NodeListOf<HTMLInputElement>;
 
-    selectedFootprintIds.clear();
+    selectedEvidenceIds.clear();
 
-    footprintCheckboxes.forEach(checkbox => {
+    evidenceCheckboxes.forEach((checkbox) => {
       checkbox.checked = target.checked;
       if (target.checked) {
-        selectedFootprintIds.add(checkbox.value);
+        selectedEvidenceIds.add(checkbox.value);
       }
     });
 
@@ -843,126 +1000,168 @@ function setupSelectAllCheckbox() {
   });
 }
 
-async function exportSelectedFootprints() {
-  if (selectedFootprintIds.size === 0) {
-    alert('Please select footprints to export');
+async function exportSelectedEvidences() {
+  if (selectedEvidenceIds.size === 0) {
+    alert(t("evidenceDashboard.selection.required"));
     return;
   }
 
-  const exportBtn = document.getElementById('export-selected-btn') as HTMLButtonElement;
+  const exportBtn = document.getElementById(
+    "export-selected-btn",
+  ) as HTMLButtonElement;
   const originalText = exportBtn.textContent;
 
   try {
     exportBtn.disabled = true;
-    exportBtn.textContent = '📤 Exporting...';
+    exportBtn.textContent = t("evidenceDashboard.exporting");
 
-    // Call the export-footprints tool with selected IDs
-    const selectedIds = Array.from(selectedFootprintIds);
-    console.log('Exporting footprints:', selectedIds);
+    // Call the export-evidences tool with selected IDs
+    const selectedIds = Array.from(selectedEvidenceIds);
+    console.log("Exporting evidences:", selectedIds);
 
     const result = await app.callServerTool({
-      name: 'export-footprints',
-      arguments: { ids: selectedIds }
+      name: "export-evidences",
+      arguments: { evidenceIds: selectedIds },
     });
 
-    console.log('Export result:', result);
+    console.log("Export result:", result);
 
     // Handle the export result
     if (result.isError) {
-      throw new Error(result.content?.find(c => c.type === "text")?.text || 'Export failed');
+      throw new Error(
+        result.content?.find((c) => c.type === "text")?.text ||
+          t("evidenceDashboard.export.failed"),
+      );
     }
 
-    const textContent = result.content?.find(c => c.type === "text")?.text;
+    const textContent = result.content?.find((c) => c.type === "text")?.text;
     if (textContent) {
       try {
         const exportData = JSON.parse(textContent);
         if (exportData.success) {
-          alert(`Successfully exported ${selectedIds.length} footprints`);
+          alert(
+            t("evidenceDashboard.export.success", {
+              count: selectedIds.length,
+            }),
+          );
           // Clear selection after successful export
-          selectedFootprintIds.clear();
+          selectedEvidenceIds.clear();
           updateSelectionCounter();
           updateSelectAllCheckbox();
 
           // Uncheck all checkboxes
-          const checkboxes = document.querySelectorAll('.footprint-checkbox') as NodeListOf<HTMLInputElement>;
-          checkboxes.forEach(cb => cb.checked = false);
-          const selectAllCheckbox = document.getElementById('select-all-checkbox') as HTMLInputElement;
+          const checkboxes = document.querySelectorAll(
+            ".evidence-checkbox",
+          ) as NodeListOf<HTMLInputElement>;
+          checkboxes.forEach((cb) => (cb.checked = false));
+          const selectAllCheckbox = document.getElementById(
+            "select-all-checkbox",
+          ) as HTMLInputElement;
           if (selectAllCheckbox) selectAllCheckbox.checked = false;
         } else {
-          throw new Error(exportData.message || 'Export failed');
+          throw new Error(
+            exportData.message || t("evidenceDashboard.export.failed"),
+          );
         }
       } catch (parseError) {
-        console.error('Failed to parse export result:', parseError);
-        alert('Export completed but result format was unexpected');
+        console.error("Failed to parse export result:", parseError);
+        alert(t("evidenceDashboard.export.partial"));
       }
     }
-
   } catch (error) {
-    console.error('Export failed:', error);
-    alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error("Export failed:", error);
+    alert(
+      t("evidenceDashboard.export.failedWithMessage", {
+        message:
+          error instanceof Error ? error.message : t("common.unknownError"),
+      }),
+    );
   } finally {
     exportBtn.disabled = false;
     exportBtn.textContent = originalText;
   }
 }
 
-async function deleteSelectedFootprints() {
-  if (selectedFootprintIds.size === 0) {
-    alert('Please select footprints to delete');
+async function deleteSelectedEvidences() {
+  if (selectedEvidenceIds.size === 0) {
+    alert(t("evidenceDashboard.selection.required"));
     return;
   }
 
-  const selectedIds = Array.from(selectedFootprintIds);
-  if (!confirm(`Are you sure you want to delete ${selectedIds.length} footprint(s)? This action cannot be undone.`)) {
+  const selectedIds = Array.from(selectedEvidenceIds);
+  if (
+    !confirm(
+      t("evidenceDashboard.delete.confirm", { count: selectedIds.length }),
+    )
+  ) {
     return;
   }
 
-  const deleteBtn = document.getElementById('delete-selected-btn') as HTMLButtonElement;
+  const deleteBtn = document.getElementById(
+    "delete-selected-btn",
+  ) as HTMLButtonElement;
   const originalText = deleteBtn.textContent;
 
   try {
     deleteBtn.disabled = true;
-    deleteBtn.textContent = '🗑️ Deleting...';
+    deleteBtn.textContent = t("evidenceDashboard.deleting");
 
-    console.log('Deleting footprints:', selectedIds);
+    console.log("Deleting evidences:", selectedIds);
 
     const result = await app.callServerTool({
-      name: 'delete-footprints',
-      arguments: { ids: selectedIds }
+      name: "delete-evidences",
+      arguments: { evidenceIds: selectedIds },
     });
 
-    console.log('Delete result:', result);
+    console.log("Delete result:", result);
 
     if (result.isError) {
-      throw new Error(result.content?.find(c => c.type === "text")?.text || 'Delete failed');
+      throw new Error(
+        result.content?.find((c) => c.type === "text")?.text ||
+          t("evidenceDashboard.delete.failed"),
+      );
     }
 
     // Parse structured content or text content
-    const structuredContent = result.structuredContent as { deletedCount: number; success: boolean } | undefined;
+    const structuredContent = result.structuredContent as
+      | { deletedCount: number; success: boolean }
+      | undefined;
 
     if (structuredContent?.success) {
-      alert(`Successfully deleted ${structuredContent.deletedCount} footprint(s)`);
+      alert(
+        t("evidenceDashboard.delete.success", {
+          count: structuredContent.deletedCount,
+        }),
+      );
 
       // Clear selection
-      selectedFootprintIds.clear();
+      selectedEvidenceIds.clear();
       updateSelectionCounter();
       updateSelectAllCheckbox();
 
       // Uncheck all checkboxes
-      const checkboxes = document.querySelectorAll('.footprint-checkbox') as NodeListOf<HTMLInputElement>;
-      checkboxes.forEach(cb => cb.checked = false);
-      const selectAllCheckbox = document.getElementById('select-all-checkbox') as HTMLInputElement;
+      const checkboxes = document.querySelectorAll(
+        ".evidence-checkbox",
+      ) as NodeListOf<HTMLInputElement>;
+      checkboxes.forEach((cb) => (cb.checked = false));
+      const selectAllCheckbox = document.getElementById(
+        "select-all-checkbox",
+      ) as HTMLInputElement;
       if (selectAllCheckbox) selectAllCheckbox.checked = false;
 
       // Refresh data
       await refreshData();
     } else {
-      throw new Error('Delete operation did not succeed');
+      throw new Error(t("evidenceDashboard.delete.failed"));
     }
-
   } catch (error) {
-    console.error('Delete failed:', error);
-    alert(`Delete failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    console.error("Delete failed:", error);
+    alert(
+      t("evidenceDashboard.delete.failedWithMessage", {
+        message:
+          error instanceof Error ? error.message : t("common.unknownError"),
+      }),
+    );
   } finally {
     deleteBtn.disabled = false;
     deleteBtn.textContent = originalText;
@@ -970,11 +1169,11 @@ async function deleteSelectedFootprints() {
 }
 
 function setupBatchOperations() {
-  const exportBtn = document.getElementById('export-selected-btn');
-  const deleteBtn = document.getElementById('delete-selected-btn');
+  const exportBtn = document.getElementById("export-selected-btn");
+  const deleteBtn = document.getElementById("delete-selected-btn");
 
-  exportBtn?.addEventListener('click', exportSelectedFootprints);
-  deleteBtn?.addEventListener('click', deleteSelectedFootprints);
+  exportBtn?.addEventListener("click", exportSelectedEvidences);
+  deleteBtn?.addEventListener("click", deleteSelectedEvidences);
 }
 
 // Handle tool results from the MCP server
@@ -982,7 +1181,7 @@ app.ontoolresult = (result) => {
   console.log("Received tool result:", result);
 
   try {
-    const textContent = result.content?.find(c => c.type === "text")?.text;
+    const textContent = result.content?.find((c) => c.type === "text")?.text;
     if (!textContent) {
       console.warn("No text content in tool result");
       return;
@@ -993,20 +1192,20 @@ app.ontoolresult = (result) => {
 
     lastDashboardData = data;
 
-    if (data.footprints) {
-      allFootprints = data.footprints;
+    if (data.evidences) {
+      allEvidences = data.evidences;
       updateView();
-      renderRecentActivity(data.footprints);
+      renderRecentActivity(data.evidences);
     } else {
-      console.warn("No footprints array in parsed data");
+      console.warn("No evidences array in parsed data");
     }
   } catch (e) {
     console.error("Failed to parse tool result:", e);
-    const tbody = document.querySelector("#footprint-table tbody");
+    const tbody = document.querySelector("#evidence-table tbody");
     if (tbody) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="5" class="loading">Error loading data</td>
+          <td colspan="5" class="loading">${escapeHtml(t("evidenceDashboard.records.loadError"))}</td>
         </tr>
       `;
     }
@@ -1018,9 +1217,9 @@ app.onresourceupdate = (update) => {
   console.log("Received resource update:", update);
 
   try {
-    // Check if this is footprint-related data
-    if (update.uri && update.uri.includes('footprint')) {
-      console.log("Footprint data updated, refreshing dashboard...");
+    // Check if this is evidence-related data
+    if (update.uri && update.uri.includes("evidence")) {
+      console.log("Evidence data updated, refreshing dashboard...");
       refreshData();
     }
   } catch (error) {
@@ -1030,18 +1229,18 @@ app.onresourceupdate = (update) => {
 
 // Set up timeline controls
 function setupTimelineControls() {
-  const timelineButtons = document.querySelectorAll('.timeline-btn');
+  const timelineButtons = document.querySelectorAll(".timeline-btn");
 
-  timelineButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
+  timelineButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
       // Update active state
-      timelineButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      timelineButtons.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
 
       // Re-render timeline with new period
-      if (allFootprints.length > 0) {
-        const filteredFootprints = filterFootprints(allFootprints);
-        renderTimeline(filteredFootprints);
+      if (allEvidences.length > 0) {
+        const filteredEvidences = filterEvidences(allEvidences);
+        renderTimeline(filteredEvidences);
       }
     });
   });
@@ -1050,57 +1249,57 @@ function setupTimelineControls() {
 // Set up tag management controls
 function setupTagControls() {
   // Manage tags button
-  const manageTagsBtn = document.getElementById('manage-tags-btn');
+  const manageTagsBtn = document.getElementById("manage-tags-btn");
   if (manageTagsBtn) {
-    manageTagsBtn.addEventListener('click', showTagModal);
+    manageTagsBtn.addEventListener("click", showTagModal);
   }
-  
+
   // Modal close button
-  const modalClose = document.getElementById('modal-close');
+  const modalClose = document.getElementById("modal-close");
   if (modalClose) {
-    modalClose.addEventListener('click', hideTagModal);
+    modalClose.addEventListener("click", hideTagModal);
   }
-  
+
   // Close modal when clicking outside
-  const modal = document.getElementById('tag-modal');
+  const modal = document.getElementById("tag-modal");
   if (modal) {
-    modal.addEventListener('click', (e) => {
+    modal.addEventListener("click", (e) => {
       if (e.target === modal) {
         hideTagModal();
       }
     });
   }
-  
+
   // Clear filters button
-  const clearFiltersBtn = document.getElementById('clear-filters-btn');
+  const clearFiltersBtn = document.getElementById("clear-filters-btn");
   if (clearFiltersBtn) {
-    clearFiltersBtn.addEventListener('click', () => {
+    clearFiltersBtn.addEventListener("click", () => {
       activeTagFilters.clear();
       updateView();
     });
   }
-  
+
   // Filter mode buttons
-  const filterModeAndBtn = document.getElementById('filter-mode-and');
-  const filterModeOrBtn = document.getElementById('filter-mode-or');
-  
+  const filterModeAndBtn = document.getElementById("filter-mode-and");
+  const filterModeOrBtn = document.getElementById("filter-mode-or");
+
   if (filterModeAndBtn && filterModeOrBtn) {
-    filterModeAndBtn.addEventListener('click', () => {
-      if (filterMode !== 'AND') {
-        filterMode = 'AND';
-        filterModeAndBtn.classList.add('active');
-        filterModeOrBtn.classList.remove('active');
+    filterModeAndBtn.addEventListener("click", () => {
+      if (filterMode !== "AND") {
+        filterMode = "AND";
+        filterModeAndBtn.classList.add("active");
+        filterModeOrBtn.classList.remove("active");
         if (activeTagFilters.size > 1) {
           updateView();
         }
       }
     });
-    
-    filterModeOrBtn.addEventListener('click', () => {
-      if (filterMode !== 'OR') {
-        filterMode = 'OR';
-        filterModeOrBtn.classList.add('active');
-        filterModeAndBtn.classList.remove('active');
+
+    filterModeOrBtn.addEventListener("click", () => {
+      if (filterMode !== "OR") {
+        filterMode = "OR";
+        filterModeOrBtn.classList.add("active");
+        filterModeAndBtn.classList.remove("active");
         if (activeTagFilters.size > 1) {
           updateView();
         }
@@ -1110,56 +1309,60 @@ function setupTagControls() {
 }
 
 // Make functions globally available for onclick handlers
-(window as any).editTag = editTag;
-(window as any).deleteTag = deleteTag;
+window.editTag = editTag;
+window.deleteTag = deleteTag;
 
 // Set up search controls
 function setupSearchControls() {
-  const searchInput = document.getElementById('search-input') as HTMLInputElement;
-  const searchClear = document.getElementById('search-clear') as HTMLButtonElement;
-  
+  const searchInput = document.getElementById(
+    "search-input",
+  ) as HTMLInputElement;
+  const searchClear = document.getElementById(
+    "search-clear",
+  ) as HTMLButtonElement;
+
   if (!searchInput || !searchClear) return;
-  
+
   // Debounce search for performance
   let searchTimeout: number | null = null;
-  
-  searchInput.addEventListener('input', () => {
-    searchClear.style.display = searchInput.value ? 'block' : 'none';
-    
+
+  searchInput.addEventListener("input", () => {
+    searchClear.style.display = searchInput.value ? "block" : "none";
+
     // Debounce the search
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
-    
+
     searchTimeout = window.setTimeout(() => {
       searchQuery = searchInput.value;
       updateView();
     }, 200);
   });
-  
-  searchClear.addEventListener('click', () => {
-    searchInput.value = '';
-    searchQuery = '';
-    searchClear.style.display = 'none';
+
+  searchClear.addEventListener("click", () => {
+    searchInput.value = "";
+    searchQuery = "";
+    searchClear.style.display = "none";
     updateView();
     searchInput.focus();
   });
-  
+
   // Handle Enter key to search immediately
-  searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
+  searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
       if (searchTimeout) {
         clearTimeout(searchTimeout);
       }
       searchQuery = searchInput.value;
       updateView();
     }
-    
+
     // Handle Escape to clear
-    if (e.key === 'Escape') {
-      searchInput.value = '';
-      searchQuery = '';
-      searchClear.style.display = 'none';
+    if (e.key === "Escape") {
+      searchInput.value = "";
+      searchQuery = "";
+      searchClear.style.display = "none";
       updateView();
     }
   });
@@ -1167,24 +1370,35 @@ function setupSearchControls() {
 
 // Initialize the app
 console.log("Connecting to MCP host...");
-app.connect().then(() => {
-  console.log("Connected to MCP host successfully");
-  isConnected = true;
-  setupSearchControls();
-  setupTimelineControls();
-  setupTagControls();
-  setupSelectAllCheckbox();
-  setupBatchOperations();
-  
-  // Start real-time polling
-  console.log("Starting real-time polling...");
-  startPolling();
-}).catch(error => {
-  console.error("Failed to connect to MCP host:", error);
-  isConnected = false;
-});
+app
+  .connect()
+  .then(() => {
+    console.log("Connected to MCP host successfully");
+    isConnected = true;
+    setupSearchControls();
+    setupTimelineControls();
+    setupTagControls();
+    setupSelectAllCheckbox();
+    setupBatchOperations();
+
+    // Start real-time polling
+    console.log("Starting real-time polling...");
+    startPolling();
+  })
+  .catch((error) => {
+    console.error("Failed to connect to MCP host:", error);
+    isConnected = false;
+    const tbody = document.querySelector("#evidence-table tbody");
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="loading">${escapeHtml(t("evidenceDashboard.records.connectError"))}</td>
+        </tr>
+      `;
+    }
+  });
 
 // Cleanup on page unload
-window.addEventListener('beforeunload', () => {
+window.addEventListener("beforeunload", () => {
   stopPolling();
 });

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="sessionDashboard.documentTitle">Footprint Work Overview</title>
+  <link rel="stylesheet" href="./src/footprint-theme.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="page-hero">
+      <div class="page-hero-toolbar">
+        <span class="page-kicker" data-i18n="sessionDashboard.kicker">Footprint memory view</span>
+        <div class="locale-switch">
+          <label for="locale-select" data-i18n="common.language">Language</label>
+          <select id="locale-select" aria-label="Language" data-i18n-aria-label="common.language">
+            <option value="en" data-i18n="common.locale.en">English</option>
+            <option value="zh-TW" data-i18n="common.locale.zh-TW">繁體中文</option>
+            <option value="ja" data-i18n="common.locale.ja">日本語</option>
+            <option value="zh-CN" data-i18n="common.locale.zh-CN">简体中文</option>
+          </select>
+        </div>
+      </div>
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title" data-i18n="sessionDashboard.title">Work Overview</h1>
+          <p class="page-subtitle" id="summary" data-i18n="sessionDashboard.summary.loading">Loading your recent work...</p>
+        </div>
+      </div>
+      <p class="page-note" data-i18n="sessionDashboard.noteHtml" data-i18n-html>Start with <strong>What Matters Now</strong>, then open a saved work record when you need the details. <strong>Ongoing Topics</strong> help you stay inside the right thread instead of guessing.</p>
+    </header>
+    <div id="error"></div>
+    <form id="filter-form" class="card card-body">
+      <div class="filters">
+        <div class="field">
+          <label for="query-filter" data-i18n="sessionDashboard.findPastWork">Find Past Work</label>
+          <input id="query-filter" name="query" type="text" placeholder="A feature, file name, bug, or question..." data-i18n-placeholder="sessionDashboard.findPastWork.placeholder" />
+        </div>
+        <div class="field">
+          <label for="issue-key-filter" data-i18n="sessionDashboard.referenceCode">Reference Code (Advanced)</label>
+          <input id="issue-key-filter" name="issueKey" type="text" placeholder="Only if someone already gave it to you" data-i18n-placeholder="sessionDashboard.referenceCode.placeholder" />
+        </div>
+        <div class="field">
+          <label for="host-filter" data-i18n="sessionDashboard.aiHelper">AI Helper</label>
+          <select id="host-filter" name="host">
+            <option value="" data-i18n="sessionDashboard.allAssistants">All AI assistants</option>
+            <option value="claude">Claude</option>
+            <option value="gemini">Gemini</option>
+            <option value="codex">Codex</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="status-filter" data-i18n="sessionDashboard.workState">Work State</label>
+          <select id="status-filter" name="status">
+            <option value="" data-i18n="sessionDashboard.allStates">All states</option>
+            <option value="running" data-i18n="sessionDashboard.state.running">In progress</option>
+            <option value="completed" data-i18n="sessionDashboard.state.completed">Done</option>
+            <option value="failed" data-i18n="sessionDashboard.state.failed">Needs attention</option>
+            <option value="interrupted" data-i18n="sessionDashboard.state.interrupted">Stopped</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="group-by-filter" data-i18n="sessionDashboard.groupBy">Group Repeated Problems By</label>
+          <select id="group-by-filter" name="groupBy">
+            <option value="issue" data-i18n="sessionDashboard.groupBy.issue">Specific problem</option>
+            <option value="family" data-i18n="sessionDashboard.groupBy.family">Broader pattern</option>
+          </select>
+        </div>
+        <div class="actions">
+          <button type="submit" data-i18n="sessionDashboard.updateView">Update View</button>
+          <button type="button" class="secondary" data-action="export-filtered" data-i18n="sessionDashboard.exportView">Export This View</button>
+          <button type="button" class="secondary" data-action="clear-filters" data-i18n="sessionDashboard.clear">Clear</button>
+        </div>
+      </div>
+    </form>
+    <div class="dashboard-grid">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 data-i18n="sessionDashboard.handoff.title">What Matters Now</h2>
+            <p class="card-subtitle" id="handoff-summary" data-i18n="sessionDashboard.handoff.loading">Loading the most important things to know...</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <ul class="list" id="handoff-results">
+            <li class="muted" data-i18n="context.nothingUrgent">Nothing urgent stands out in this view yet.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 data-i18n="sessionDashboard.trends.title">Problems That Came Back</h2>
+            <p class="card-subtitle" id="trend-summary" data-i18n="sessionDashboard.trends.loading">Looking for issues that have shown up more than once...</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <ul class="list" id="trend-results">
+            <li class="muted" data-i18n="sessionDashboard.trends.empty">No repeated problems found yet.</li>
+          </ul>
+          <div class="panel-actions">
+            <button type="button" class="secondary" id="load-more-trends" data-action="load-more-trends" hidden data-i18n="sessionDashboard.loadMoreTrends">Show More Repeated Problems</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 data-i18n="sessionDashboard.contexts.title">Ongoing Topics</h2>
+            <p class="card-subtitle" id="context-summary" data-i18n="sessionDashboard.contexts.loading">Loading the ongoing topics Footprint already knows about...</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <ul class="list" id="context-results">
+            <li class="muted" data-i18n="sessionDashboard.contexts.empty">No ongoing topics yet.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card wide-card">
+        <div class="card-header">
+          <div>
+            <h2 data-i18n="sessionDashboard.search.title">Earlier Related Work</h2>
+            <p class="card-subtitle" id="search-summary" data-i18n="sessionDashboard.search.loading">Type above to find earlier work that may help.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <ul class="list" id="search-results">
+            <li class="muted" data-i18n="sessionDashboard.search.empty">Search results will appear here.</li>
+          </ul>
+          <div class="panel-actions">
+            <button type="button" class="secondary" id="load-more-search" data-action="load-more-search" hidden data-i18n="sessionDashboard.loadMoreSearch">Show More Results</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2 data-i18n="sessionDashboard.sessions.title">Recent Work</h2>
+          <p class="card-subtitle" data-i18n="sessionDashboard.sessions.subtitle">Newest first. Open one to see the plain-language overview first, then the detailed traces if needed.</p>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th data-i18n="sessionDashboard.sessions.table.work">Work</th>
+              <th data-i18n="sessionDashboard.sessions.table.ai">AI</th>
+              <th data-i18n="sessionDashboard.sessions.table.state">State</th>
+              <th data-i18n="sessionDashboard.sessions.table.started">Started</th>
+              <th data-i18n="common.actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="5" class="empty" data-i18n="sessionDashboard.sessions.empty">No saved work records yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer">
+        <div class="panel-actions">
+          <button type="button" class="secondary" id="load-more-sessions" data-action="load-more-sessions" hidden data-i18n="sessionDashboard.loadMoreSessions">Show More Work</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./src/session-dashboard.ts"></script>
+</body>
+</html>

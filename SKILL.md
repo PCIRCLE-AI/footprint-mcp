@@ -1,10 +1,12 @@
 # Footprint Agent Skill
 
-> MCP server for capturing and encrypting AI conversations as verifiable records with Git timestamps.
+> MCP server for AI work history, context memory, and encrypted evidence capture.
 
 **Package:** `@pcircle/footprint` (v1.1.1)  
 **Protocol:** Model Context Protocol (MCP)  
 **License:** MIT
+
+This skill is specifically about the encrypted evidence workflow. Footprint also has separate session-history and context-memory surfaces for ongoing work continuity.
 
 ## Decision Tree: Should I Capture This?
 
@@ -12,7 +14,7 @@
 Should I capture this conversation?
 ├─ User explicitly asked → YES
 │   ├─ "save this conversation"
-│   ├─ "record this for evidence"  
+│   ├─ "record this for evidence"
 │   ├─ "capture this as evidence"
 │   └─ "I need this for legal/audit purposes"
 ├─ High-value content mentioned → SUGGEST to user
@@ -32,19 +34,22 @@ Should I capture this conversation?
 ## Specific Trigger Patterns
 
 **Immediate capture (don't ask, just do it):**
+
 - "save this conversation"
-- "record this for evidence" 
+- "record this for evidence"
 - "capture this as evidence"
 - "I need this documented"
 - "save this for legal purposes"
 
 **Suggest capture (ask user first):**
+
 - After discussing: patents, contracts, algorithms, research hypotheses, business decisions
 - When mentioned: "IP", "copyright", "legal", "audit", "proof", "compliance"
 - Milestone completions: "finished", "completed", "approved", "signed off"
 - Key decisions: "we decided", "the plan is", "going with option"
 
 **Never capture without explicit request:**
+
 - Casual conversations, personal chat, jokes
 - Debugging sessions, draft work, brainstorming
 - Test conversations, API experiments
@@ -53,13 +58,15 @@ Should I capture this conversation?
 ## Available Tools
 
 ### 1. `capture-footprint`
+
 Save a conversation as encrypted evidence.
 
 **Input Parameters:**
+
 ```json
 {
   "conversationId": "api-auth-decision-2026-01-28",
-  "llmProvider": "Claude Sonnet 4.5", 
+  "llmProvider": "Claude Sonnet 4.5",
   "content": "Human: We need to decide on the OAuth implementation...\nAssistant: I recommend using PKCE flow...\nHuman: Approved, let's go with that approach.",
   "messageCount": 15,
   "tags": "api,oauth,security,decision,approved"
@@ -67,11 +74,12 @@ Save a conversation as encrypted evidence.
 ```
 
 **Expected Output (text):**
+
 ```
 ✅ Evidence captured successfully
 - Evidence ID: `550e8400-e29b-41d4-a716-446655440000`
 - Conversation ID: `api-auth-decision-2026-01-28`
-- Messages: 15 
+- Messages: 15
 - Tags: api,oauth,security,decision,approved
 - Git hash: `a1b2c3d4e5f6789...`
 - Created: 2026-01-28T14:30:45Z
@@ -80,11 +88,12 @@ Keep this Evidence ID safe for future reference.
 ```
 
 **Expected Output (structuredContent):**
+
 ```json
 {
   "type": "evidence_created",
   "evidenceId": "550e8400-e29b-41d4-a716-446655440000",
-  "conversationId": "api-auth-decision-2026-01-28", 
+  "conversationId": "api-auth-decision-2026-01-28",
   "messageCount": 15,
   "tags": ["api", "oauth", "security", "decision", "approved"],
   "gitHash": "a1b2c3d4e5f6789...",
@@ -94,9 +103,11 @@ Keep this Evidence ID safe for future reference.
 ```
 
 ### 2. `list-footprints`
+
 List all captured evidence (metadata only).
 
 **Input Parameters:**
+
 ```json
 {
   "limit": 10,
@@ -105,15 +116,17 @@ List all captured evidence (metadata only).
 ```
 
 **Expected Output (text):**
+
 ```
 📋 Evidence Archive (10 most recent)
 1. api-auth-decision-2026-01-28 | 15 msgs | api,oauth,security
-2. patent-algorithm-2026-01-27 | 32 msgs | ip,patent,algorithm  
+2. patent-algorithm-2026-01-27 | 32 msgs | ip,patent,algorithm
 3. contract-review-2026-01-26 | 8 msgs | legal,contract
 ...
 ```
 
 **Expected Output (structuredContent):**
+
 ```json
 {
   "type": "evidence_list",
@@ -131,9 +144,11 @@ List all captured evidence (metadata only).
 ```
 
 ### 3. `get-footprint`
+
 Retrieve and decrypt specific evidence.
 
 **Input Parameters:**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000"
@@ -141,6 +156,7 @@ Retrieve and decrypt specific evidence.
 ```
 
 **Expected Output (text):**
+
 ```
 📄 Evidence Retrieved
 - ID: 550e8400-e29b-41d4-a716-446655440000
@@ -154,9 +170,11 @@ Assistant: I recommend using PKCE flow...
 ```
 
 ### 4. `search-footprints`
+
 Find evidence by content or tags.
 
 **Input Parameters:**
+
 ```json
 {
   "query": "OAuth OR PKCE OR authentication",
@@ -166,9 +184,11 @@ Find evidence by content or tags.
 ```
 
 ### 5. `export-footprints`
+
 Export evidence as encrypted archive.
 
 **Input Parameters:**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -177,6 +197,7 @@ Export evidence as encrypted archive.
 ```
 
 **Expected Output (structuredContent):**
+
 ```json
 {
   "type": "evidence_export",
@@ -188,9 +209,11 @@ Export evidence as encrypted archive.
 ```
 
 ### 6. `verify-footprint`
+
 Verify evidence integrity (checksum + Git timestamp).
 
 **Input Parameters:**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000"
@@ -198,6 +221,7 @@ Verify evidence integrity (checksum + Git timestamp).
 ```
 
 **Expected Output (text):**
+
 ```
 🔐 Evidence Verification Report
 - ID: 550e8400-e29b-41d4-a716-446655440000
@@ -208,6 +232,7 @@ Verify evidence integrity (checksum + Git timestamp).
 ```
 
 **Expected Output (structuredContent):**
+
 ```json
 {
   "type": "verification_result",
@@ -223,21 +248,26 @@ Verify evidence integrity (checksum + Git timestamp).
 ## Best Practices
 
 ### Naming conversationId
+
 **Format:** `{topic-type}-{descriptive-name}-{YYYY-MM-DD}`
 
 **Good examples:**
+
 - `api-auth-decision-2026-01-28`
 - `patent-ml-algorithm-2026-01-27`
 - `contract-vendor-negotiation-2026-01-26`
 - `milestone-mvp-completion-2026-01-25`
 
 **Avoid:**
+
 - `conversation-1` (not descriptive)
-- `important-chat` (too vague)  
+- `important-chat` (too vague)
 - `chat-2026-01-28` (missing context)
 
 ### Choosing Tags
+
 **Common patterns:**
+
 - **Type**: `decision`, `milestone`, `research`, `review`, `approval`
 - **Domain**: `api`, `ui`, `database`, `security`, `legal`, `business`
 - **Status**: `draft`, `finalized`, `approved`, `rejected`
@@ -245,12 +275,14 @@ Verify evidence integrity (checksum + Git timestamp).
 - **Legal**: `contract`, `agreement`, `compliance`, `audit`
 
 **Tag Guidelines:**
+
 - Use 3-6 tags maximum
 - Prefer specific over general (`oauth` not just `auth`)
 - Include project/product names if relevant
 - Always include content type (`decision`, `research`, etc.)
 
 ### When to Use Each Tool
+
 - **capture-footprint**: Primary tool for saving conversations
 - **list-footprints**: Browse/overview existing evidence
 - **search-footprints**: Find specific content across evidence
@@ -261,23 +293,27 @@ Verify evidence integrity (checksum + Git timestamp).
 ## Token-Efficient Agent Responses
 
 **After capturing evidence (keep it brief):**
+
 ```
-✅ Evidence saved as `{conversationId}` 
+✅ Evidence saved as `{conversationId}`
 ID: `{first-8-chars-of-id}`...
 Tags: {tags}
 ```
 
 **When suggesting capture:**
+
 ```
 💡 This looks like valuable evidence (contains {trigger}). Save it?
 ```
 
 **When declining to capture:**
+
 ```
 ℹ️ Skipping evidence capture (casual conversation)
 ```
 
 **For retrieval:**
+
 ```
 📄 Found: {conversationId} ({messageCount} messages)
 [Show relevant excerpt or summary]
@@ -285,25 +321,27 @@ Tags: {tags}
 
 ## Error Handling with Recovery Actions
 
-| Error | Likely Cause | Recovery Action |
-|-------|--------------|-----------------|
-| "Password required" | FOOTPRINT_PASSPHRASE not set | 1. Check env config<br>2. Restart MCP server<br>3. Verify passphrase in env |
-| "Evidence not found" | Invalid/wrong ID | 1. Use `list-footprints` to find correct ID<br>2. Search by conversationId<br>3. Check if user meant different evidence |
-| "Decryption failed" | Password changed/wrong | 1. Verify current password matches<br>2. Check if evidence pre-dates password change<br>3. Try with backup password if available |
-| "Database error" | DB path/permissions issues | 1. Check FOOTPRINT_DATA_DIR exists<br>2. Verify file permissions<br>3. Create directory if missing |
-| "Git repository error" | Git not initialized | 1. Initialize git in evidence directory<br>2. Set git user.name/user.email<br>3. Make initial commit |
-| "Capture timeout" | Large conversation size | 1. Split into smaller chunks<br>2. Reduce messageCount<br>3. Compress content before capture |
+| Error                  | Likely Cause                 | Recovery Action                                                                                                                  |
+| ---------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| "Password required"    | FOOTPRINT_PASSPHRASE not set | 1. Check env config<br>2. Restart MCP server<br>3. Verify passphrase in env                                                      |
+| "Evidence not found"   | Invalid/wrong ID             | 1. Use `list-footprints` to find correct ID<br>2. Search by conversationId<br>3. Check if user meant different evidence          |
+| "Decryption failed"    | Password changed/wrong       | 1. Verify current password matches<br>2. Check if evidence pre-dates password change<br>3. Try with backup password if available |
+| "Database error"       | DB path/permissions issues   | 1. Check FOOTPRINT_DATA_DIR exists<br>2. Verify file permissions<br>3. Create directory if missing                               |
+| "Git repository error" | Git not initialized          | 1. Initialize git in evidence directory<br>2. Set git user.name/user.email<br>3. Make initial commit                             |
+| "Capture timeout"      | Large conversation size      | 1. Split into smaller chunks<br>2. Reduce messageCount<br>3. Compress content before capture                                     |
 
 **Agent Recovery Protocol:**
+
 1. **Detect error** from tool response
 2. **Identify cause** from error message
-3. **Apply recovery action** from table above  
+3. **Apply recovery action** from table above
 4. **Retry operation** if recovery successful
 5. **Escalate to user** only if recovery fails
 
 ## Workflow Examples
 
 ### 1. User Explicit Request
+
 ```
 User: "Save this conversation about the API design"
 
@@ -314,7 +352,8 @@ Agent:
 4. Report success with Evidence ID
 ```
 
-### 2. High-Value Content Detection  
+### 2. High-Value Content Detection
+
 ```
 User: "We've decided to patent this algorithm approach."
 
@@ -325,6 +364,7 @@ Agent:
 ```
 
 ### 3. Evidence Retrieval
+
 ```
 User: "Find the conversation about OAuth implementation"
 
@@ -335,10 +375,11 @@ Agent:
 ```
 
 ### 4. Legal Export
+
 ```
 User: "Export the patent evidence for filing"
 
-Agent: 
+Agent:
 1. 🔍 Help identify relevant evidence (search by "patent" tag)
 2. 📦 Export each evidence as encrypted ZIP
 3. ✅ Provide files with verification instructions
@@ -348,14 +389,15 @@ Agent:
 ## Security & Verification
 
 - **Password**: Set via `FOOTPRINT_PASSPHRASE` env var (never ask user in chat)
-- **Encryption**: XChaCha20-Poly1305 (256-bit) with Argon2id key derivation  
+- **Encryption**: XChaCha20-Poly1305 (256-bit) with Argon2id key derivation
 - **Git Timestamps**: Cryptographic proof of creation time
 - **SHA-256 Checksums**: Detect any content tampering
 - **Evidence Chain**: Each capture creates immutable Git commit
 - **Storage**: Local SQLite with encrypted BLOBs (no cloud, no tracking)
 
 **For legal proceedings:**
-1. Export evidence with `export-evidence` 
+
+1. Export evidence with `export-evidence`
 2. Verify Git hash against repository
 3. Check SHA-256 checksum matches
 4. Git log shows creation timestamp
@@ -375,13 +417,14 @@ npx @pcircle/footprint
 
 **Claude Desktop config location:**
 
-| Platform | Config Path |
-|----------|-------------|
-| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Linux | `~/.config/Claude/claude_desktop_config.json` |
-| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Platform | Config Path                                                       |
+| -------- | ----------------------------------------------------------------- |
+| macOS    | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Linux    | `~/.config/Claude/claude_desktop_config.json`                     |
+| Windows  | `%APPDATA%\Claude\claude_desktop_config.json`                     |
 
 **Config content:**
+
 ```json
 {
   "mcpServers": {
@@ -398,6 +441,7 @@ npx @pcircle/footprint
 ```
 
 **Environment Variables:**
+
 - `FOOTPRINT_PASSPHRASE` (required): Encryption passphrase
 - `FOOTPRINT_DATA_DIR` (optional): Directory for data storage (default: `~/.footprint`)
 

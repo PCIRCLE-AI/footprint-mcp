@@ -19,7 +19,7 @@ export const listFootprintsSchema = {
       .describe("Number of results to skip for pagination (0-based)"),
   },
   outputSchema: {
-    footprints: z.array(
+    evidences: z.array(
       z.object({
         id: z.string(),
         timestamp: z.string(),
@@ -78,7 +78,7 @@ export function createListFootprintsHandler(db: EvidenceDatabase) {
           Limit: params.limit ?? "No limit",
           Offset: params.offset ?? 0,
         },
-        { footprints: mappedEvidences, total },
+        { evidences: mappedEvidences, total },
       );
     },
   );

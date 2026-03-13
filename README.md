@@ -3,26 +3,147 @@
 [![npm version](https://img.shields.io/npm/v/@pcircle/footprint)](https://www.npmjs.com/package/@pcircle/footprint)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-MCP server that automatically captures and encrypts AI conversations as verifiable records with Git timestamps and end-to-end encryption.
+Project site: [footprint.memesh.ai](https://footprint.memesh.ai/)
 
-## Why Footprint?
+`@pcircle/footprint` is a local-first MCP server for AI-assisted work continuity. It gives you one place to:
 
-- **Prove IP Ownership** — Timestamped evidence of AI-assisted work
-- **Zero Effort** — Automatic capture via MCP protocol
-- **Privacy First** — End-to-end encrypted, locally stored
-- **Legally Valid** — Git timestamps + SHA-256 checksums
+- keep a usable history of ongoing AI-assisted work, including context memory and handoff-friendly summaries
+- preserve specific conversations as encrypted evidence when they need verification and export
+
+It is open source. No seats, no usage pricing, and no hosted-memory lock-in.
+
+The session recorder preserves raw transcript and timeline data first, then derives artifacts, narratives, decisions, and user-correctable context threads from that source history.
+
+Interactive sessions use `script`-backed PTY transport on BSD/macOS and Linux. BSD/macOS replays native `script -r` transcripts, while Linux replays util-linux advanced timing logs so transcript attribution stays consistent across platforms.
+
+## Start Here
+
+If you are new to Footprint, use this order:
+
+1. [Open the project site](https://footprint.memesh.ai/) and look at the product screenshots first.
+2. Run `npx @pcircle/footprint setup` to try it quickly, or install the CLI with `npm install -g @pcircle/footprint`.
+3. If you are still using the quick `npx` path, open the local product with `npx @pcircle/footprint demo --open`. If you installed the CLI, use `footprint demo --open`.
+4. Start recording real work with `footprint run ...`.
 
 ## Quick Start
+
+If you only want to see the product locally first:
+
+```bash
+npx @pcircle/footprint setup
+npx @pcircle/footprint demo --open
+```
+
+If you want the CLI installed for repeated use:
+
+```bash
+npm install -g @pcircle/footprint
+footprint setup
+```
+
+If you want to start recording live CLI work immediately:
+
+```bash
+footprint run claude -- <args...>
+footprint run gemini -- <args...>
+footprint run codex -- <args...>
+```
+
+If you want Footprint to suggest the right context before a run begins:
+
+```bash
+footprint run codex --prepare-context -- <args...>
+```
+
+### Install And Configure
 
 ```bash
 npx @pcircle/footprint setup
 ```
 
-The interactive wizard auto-detects your system, validates your encryption password, and configures Claude Desktop automatically.
+Persistent install:
 
-### Manual Configuration
+```bash
+npm install -g @pcircle/footprint
+footprint setup
+```
 
-Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+The setup wizard:
+
+- creates the local data directory
+- validates the passphrase
+- configures Claude Desktop when available
+- optionally appends environment variables to the active shell rc file
+
+Node.js `>=22` is required.
+
+If you stay on the quick `npx` path, use `npx @pcircle/footprint ...` for later commands too. The bare `footprint` command is only available after a global install.
+
+### Open The Local Live Product
+
+```bash
+npx @pcircle/footprint demo
+```
+
+If you installed the CLI globally, use `footprint demo` or `footprint demo --open`.
+
+This starts a local browser-facing surface for the current Footprint database and prints a localhost URL for:
+
+- the session dashboard
+- deep-linked session detail pages
+- context review and correction flows
+- export and handoff interactions
+
+Optional flags:
+
+```bash
+footprint demo --host 127.0.0.1 --port 4310
+footprint demo --open
+```
+
+Recorder inspection commands:
+
+```bash
+footprint sessions list [--query "<text>"] [--issue-key "<issue-key>"] [--host <claude|gemini|codex>] [--status <running|completed|failed|interrupted>]
+footprint session show <session-id> [--message-limit <n>] [--message-offset <n>] [--trend-limit <n>] [--trend-offset <n>] [--timeline-limit <n>] [--timeline-offset <n>] [--artifact-limit <n>] [--artifact-offset <n>] [--narrative-limit <n>] [--narrative-offset <n>] [--decision-limit <n>] [--decision-offset <n>]
+footprint session ingest <session-id>
+footprint session export <session-id> [--group-by <issue|family>]
+footprint session messages <session-id> [--limit <n>] [--offset <n>]
+footprint session trends <session-id> [--limit <n>] [--offset <n>]
+footprint session timeline <session-id> [--limit <n>] [--offset <n>]
+footprint session artifacts <session-id> [--limit <n>] [--offset <n>]
+footprint session narratives <session-id> [--kind <journal|project-summary|handoff>] [--limit <n>] [--offset <n>]
+footprint session decisions <session-id> [--limit <n>] [--offset <n>]
+footprint history search "<query>" [--host <claude|gemini|codex>] [--status <running|completed|failed|interrupted>]
+footprint history trends [--query "<text>"] [--issue-key "<issue-key>"] [--host <claude|gemini|codex>] [--status <running|completed|failed|interrupted>] [--group-by <issue|family>]
+footprint history handoff [--query "<text>"] [--issue-key "<issue-key>"] [--host <claude|gemini|codex>] [--status <running|completed|failed|interrupted>] [--group-by <issue|family>]
+```
+
+Context memory commands:
+
+```bash
+footprint contexts list
+footprint context resolve [--session <session-id>] [--cwd <path>] [--title "<text>"] [--host <claude|gemini|codex>]
+footprint context prepare [--session <session-id>] [--cwd <path>] [--title "<text>"] [--host <claude|gemini|codex>] [--interactive] [--json]
+footprint context show <context-id>
+footprint context confirm <session-id> [<session-id> ...] [--context <context-id>] [--label "<label>"] [--set-preferred]
+footprint context reject <session-id> --context <context-id>
+footprint context move <session-id> [--context <context-id>] [--label "<label>"] [--set-preferred]
+footprint context merge <source-context-id> <target-context-id>
+footprint context split <context-id> --sessions <session-id,session-id,...> [--label "<label>"] [--set-preferred]
+footprint context activate <context-id> [--cwd <path>]
+footprint demo [--host <address>] [--port <number>] [--open]
+```
+
+Add `--json` to the query commands above when you want scriptable output.
+
+### Run As An MCP Server
+
+When invoked without a CLI subcommand, Footprint starts the MCP server on stdio.
+
+### Manual MCP Configuration
+
+Claude Desktop example:
 
 ```json
 {
@@ -39,131 +160,86 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
 }
 ```
 
-For Claude Code, add to `~/.claude/mcp_settings.json` with the same structure.
+For Claude Code, use the same server definition in `~/.claude/mcp_settings.json`.
 
-## MCP Tools (9 tools)
+## Product Surfaces
 
-### capture-footprint
+### Session History And Context Memory
 
-Capture and encrypt an LLM conversation. Use when: user explicitly asks to save, or high-value content (IP, legal, business, research, compliance).
+Use the recorder when you care about staying in the right line of work, seeing what happened, and handing it off cleanly:
 
-| Parameter        | Required | Description                                                        |
-| ---------------- | -------- | ------------------------------------------------------------------ |
-| `conversationId` | Yes      | Unique ID, format: `{topic}-{descriptor}-{YYYY-MM-DD}`             |
-| `content`        | Yes      | Full conversation text including both human and assistant messages |
-| `tags`           | No       | Comma-separated tags                                               |
-| `llmProvider`    | No       | Provider name (default: `"unknown"`)                               |
-| `messageCount`   | No       | Number of messages (auto-calculated from content if omitted)       |
+- ordered user and assistant transcript
+- wrapper and adapter timeline events
+- command and test activity with richer command intent classification
+- file and git changes
+- conservative context-thread suggestions for new or resumed sessions
+- canonical context briefings with current truth, blockers, open questions, active decisions, and superseded decisions
+- correction operations so users can confirm, reject, move, merge, split, and prefer contexts instead of accepting black-box auto-linking
+- cross-session issue trends built from execution-backed retries and failures, with optional broader failure-family grouping
+- derived narratives and decisions, including retry-aware handoff summaries and clustered issue rollups
+- downloadable ZIP handoff bundles with raw and derived session state
 
-### list-footprints
+Primary MCP tools:
 
-List all captured evidence with pagination.
+- `list-sessions`
+- `list-contexts`
+- `get-context`
+- `resolve-context`
+- `confirm-context-link`
+- `reject-context-link`
+- `move-session-context`
+- `merge-contexts`
+- `split-context`
+- `set-active-context`
+- `get-session`
+- `export-sessions`
+- `get-session-messages`
+- `get-session-trends`
+- `get-session-timeline`
+- `get-session-artifacts`
+- `get-session-narrative`
+- `get-session-decisions`
+- `search-history`
+- `get-history-trends`
+- `get-history-handoff`
+- `reingest-session`
 
-| Parameter | Required | Description                    |
-| --------- | -------- | ------------------------------ |
-| `limit`   | No       | Results per page (default: 10) |
-| `offset`  | No       | Pagination offset              |
+Primary UI resources:
 
-### get-footprint
+- `ui://footprint/session-dashboard.html`
+- `ui://footprint/session-detail.html`
 
-Retrieve and decrypt specific evidence by ID.
+### Encrypted Evidence
 
-| Parameter | Required | Description |
-| --------- | -------- | ----------- |
-| `id`      | Yes      | Evidence ID |
+Use the evidence flow when you need a discrete preserved record of a conversation.
 
-### search-footprints
+Primary MCP tools:
 
-Search conversations by query, tags, and date range. Query matches conversationId and tags (LIKE). Tags filter uses AND logic.
+- `capture-footprint`
+- `list-footprints`
+- `get-footprint`
+- `search-footprints`
+- `export-footprints`
+- `verify-footprint`
+- `delete-footprints`
+- `manage-tags`
+- `suggest-capture`
 
-| Parameter  | Required | Description                    |
-| ---------- | -------- | ------------------------------ |
-| `query`    | No       | Search text                    |
-| `tags`     | No       | Array of tags (AND logic)      |
-| `dateFrom` | No       | Start date (ISO 8601)          |
-| `dateTo`   | No       | End date (ISO 8601)            |
-| `limit`    | No       | Results per page (default: 10) |
-| `offset`   | No       | Pagination offset              |
+Primary UI resources:
 
-### export-footprints
+- `ui://footprint/dashboard.html`
+- `ui://footprint/detail.html`
+- `ui://footprint/export.html`
 
-Export evidence to encrypted ZIP archive.
+## Storage Model
 
-| Parameter     | Required | Description                                           |
-| ------------- | -------- | ----------------------------------------------------- |
-| `evidenceIds` | No       | Specific IDs to export (all if omitted)               |
-| `outputMode`  | No       | `"file"`, `"base64"`, or `"both"` (default: `"both"`) |
+Footprint uses one local SQLite database with three logical models:
 
-### verify-footprint
+- evidence tables for encrypted conversation capture
+- session-history tables for recorder transcript, events, artifacts, narratives, and decisions
+- context tables for canonical context threads, explicit corrections, and workspace preferences
 
-Verify evidence integrity using stored checksums and Git timestamps.
-
-| Parameter | Required | Description |
-| --------- | -------- | ----------- |
-| `id`      | Yes      | Evidence ID |
-
-Returns: `integrityVerified`, `checksumValid`, `gitTimestamp`
-
-### delete-footprints
-
-Permanently delete evidence records. Uses two-step confirmation.
-
-| Parameter       | Required | Description                                          |
-| --------------- | -------- | ---------------------------------------------------- |
-| `evidenceIds`   | Yes      | Array of evidence IDs                                |
-| `confirmDelete` | No       | Set `true` to confirm (default: `false` for preview) |
-
-### suggest-capture
-
-AI-powered capture suggestion based on keyword analysis.
-
-| Parameter | Required | Description                                          |
-| --------- | -------- | ---------------------------------------------------- |
-| `summary` | Yes      | Brief conversation summary or key content to analyze |
-
-### manage-tags
-
-Unified tag management with three actions: `stats`, `rename`, `remove`.
-
-| Parameter | Required   | Description                           |
-| --------- | ---------- | ------------------------------------- |
-| `action`  | Yes        | `"stats"` \| `"rename"` \| `"remove"` |
-| `tag`     | For remove | Tag to remove                         |
-| `oldTag`  | For rename | Current tag name                      |
-| `newTag`  | For rename | New tag name                          |
-
-## MCP Prompts (3 prompts)
-
-- **`footprint-skill`** — Full agent behavior guide (decision tree, triggers, workflows, error recovery)
-- **`footprint-quick-ref`** — Condensed quick reference for tool selection and tag conventions
-- **`footprint-should-capture`** — Semantic decision framework for evaluating capture worthiness (takes `conversationSummary` argument)
-
-## Architecture
-
-```
-packages/mcp-server/
-├── src/
-│   ├── index.ts              # Main MCP server
-│   ├── prompts/              # MCP prompt handlers
-│   │   └── skill-prompt.ts
-│   ├── tools/                # MCP tool handlers (9 tools)
-│   │   ├── capture-footprint.ts
-│   │   ├── list-footprints.ts
-│   │   ├── get-footprint.ts
-│   │   ├── search-footprints.ts
-│   │   ├── export-footprints.ts
-│   │   ├── verify-footprint.ts
-│   │   ├── delete-footprints.ts
-│   │   ├── suggest-capture.ts
-│   │   └── manage-tags.ts
-│   ├── analyzers/            # Content analysis
-│   ├── cli/                  # Setup wizard
-│   ├── lib/
-│   │   ├── crypto/           # XChaCha20-Poly1305 + Argon2id
-│   │   └── storage/          # SQLite + Git timestamps
-│   └── ui/                   # Interactive dashboards
-└── tests/
-```
+Evidence content is encrypted at rest. Session history is preserved as raw transcript plus raw timeline, derived views can be regenerated through `reingest-session`, and session exports package both raw and derived views into a portable ZIP archive. Context threading is suggestion-first and correction-driven: unresolved sessions stay isolated until the user confirms a canonical link. Cross-session filtering is backed by cached session-history text and exact issue-key rows inside SQLite so search and list surfaces stay incremental as histories grow.
 
 ## Security
 
@@ -174,6 +250,27 @@ packages/mcp-server/
 
 > **Store your password securely** — loss means permanent data loss.
 
+## Architecture
+
+Key runtime components:
+
+- MCP server registration in `src/index.ts`
+- CLI setup and recorder runtime in `src/cli/`
+- host adapters in `src/adapters/`
+- deterministic and semantic ingestion in `src/ingestion/`
+- SQLite schema and persistence in `src/lib/storage/`
+- MCP app resource registration in `src/ui/register.ts`
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for further reading.
+
+## Prompts
+
+Footprint registers three prompts for MCP clients:
+
+- `footprint-skill`
+- `footprint-quick-ref`
+- `footprint-should-capture`
+
 ## Development
 
 ```bash
@@ -181,15 +278,21 @@ git clone https://github.com/PCIRCLE-AI/footprint-mcp.git
 cd footprint-mcp
 pnpm install
 pnpm build
-pnpm test
+pnpm test:run
 ```
 
-## Support
+Repository CI runs Ubuntu and macOS jobs: Ubuntu covers install, lint, tarball install smoke, the default Vitest suite, the Linux PTY smoke path, browser-mode session UI tests, and the package publish gate; macOS covers recorder-focused PTY tests plus a real BSD `script -r` smoke path.
 
-- [GitHub](https://github.com/PCIRCLE-AI/footprint-mcp)
-- [Issues](https://github.com/PCIRCLE-AI/footprint-mcp/issues)
-- [npm](https://www.npmjs.com/package/@pcircle/footprint)
-- [Website](https://footprint.memesh.ai)
+`pnpm test:publish-gate` is the package-level release check. It runs audit, build, the package Vitest suite, and the tarball install smoke so `prepublishOnly` blocks releases that are not installable from the packed artifact.
+
+Set `FOOTPRINT_DEBUG_PERF=1` when you want lightweight timing traces for reingest, history query, and export paths while debugging large session sets.
+
+## Links
+
+- Repository: <https://github.com/PCIRCLE-AI/footprint-mcp>
+- Package: <https://www.npmjs.com/package/@pcircle/footprint>
+- Project site: <https://footprint.memesh.ai/>
+- Issues: <https://github.com/PCIRCLE-AI/footprint-mcp/issues>
 
 ## License
 

@@ -44,7 +44,7 @@ describe("Feature Coverage: AI-Native & UX Improvements", () => {
     try {
       const exports = fs
         .readdirSync(".")
-        .filter((f) => f.startsWith("footprint-export-"));
+        .filter((f) => f.startsWith("evidence-export-"));
       exports.forEach((f) => fs.unlinkSync(f));
     } catch {
       // Ignore cleanup errors
@@ -91,7 +91,7 @@ describe("Feature Coverage: AI-Native & UX Improvements", () => {
 
       expect(result.structuredContent.total).toBe(2);
       expect(
-        (result.structuredContent.footprints as EvidenceItem[]).length,
+        (result.structuredContent.evidences as EvidenceItem[]).length,
       ).toBe(2);
     });
 
@@ -102,7 +102,7 @@ describe("Feature Coverage: AI-Native & UX Improvements", () => {
 
       expect(result.structuredContent.total).toBe(1);
       expect(
-        (result.structuredContent.footprints as EvidenceItem[]).length,
+        (result.structuredContent.evidences as EvidenceItem[]).length,
       ).toBe(1);
     });
 
@@ -125,7 +125,7 @@ describe("Feature Coverage: AI-Native & UX Improvements", () => {
       // Only api-security matches both query "api" and tag "security"
       expect(result.structuredContent.total).toBe(1);
       expect(
-        (result.structuredContent.footprints as EvidenceItem[])[0]
+        (result.structuredContent.evidences as EvidenceItem[])[0]
           .conversationId,
       ).toBe("api-security-2026-02-01");
     });
@@ -140,7 +140,7 @@ describe("Feature Coverage: AI-Native & UX Improvements", () => {
       // Total should be 2 (all matching), but only 1 result returned
       expect(result.structuredContent.total).toBe(2);
       expect(
-        (result.structuredContent.footprints as EvidenceItem[]).length,
+        (result.structuredContent.evidences as EvidenceItem[]).length,
       ).toBe(1);
     });
 
@@ -153,7 +153,7 @@ describe("Feature Coverage: AI-Native & UX Improvements", () => {
 
       expect(result.structuredContent.total).toBe(2);
       expect(
-        (result.structuredContent.footprints as EvidenceItem[]).length,
+        (result.structuredContent.evidences as EvidenceItem[]).length,
       ).toBe(0);
     });
   });
@@ -276,7 +276,7 @@ describe("Feature Coverage: AI-Native & UX Improvements", () => {
       // Verify record is gone
       await expect(
         env.helpers.callTool("get-footprint", { id: evidenceId }),
-      ).rejects.toThrow("Footprint not found");
+      ).rejects.toThrow("Evidence not found");
     });
 
     it("should handle preview of non-existent IDs gracefully", async () => {

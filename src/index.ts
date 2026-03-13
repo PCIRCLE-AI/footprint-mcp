@@ -9,6 +9,7 @@ import {
   ResourceTemplate,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import {
   EvidenceDatabase,
   storeSalt,
@@ -20,6 +21,11 @@ import { getErrorMessage } from "./lib/tool-wrapper.js";
 import { decrypt } from "./lib/crypto/index.js";
 import type { ServerConfig } from "./types.js";
 import { registerSkillPrompts } from "./prompts/skill-prompt.js";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const { version: PKG_VERSION } = require("../package.json") as {
+  version: string;
+};
 
 // Import all tool handlers
 import {
@@ -50,6 +56,72 @@ import {
   manageTagsSchema,
   manageTagsMetadata,
   createManageTagsHandler,
+  listSessionsSchema,
+  listSessionsMetadata,
+  createListSessionsHandler,
+  listContextsSchema,
+  listContextsMetadata,
+  createListContextsHandler,
+  getContextSchema,
+  getContextMetadata,
+  createGetContextHandler,
+  resolveContextSchema,
+  resolveContextMetadata,
+  createResolveContextHandler,
+  confirmContextLinkSchema,
+  confirmContextLinkMetadata,
+  createConfirmContextLinkHandler,
+  rejectContextLinkSchema,
+  rejectContextLinkMetadata,
+  createRejectContextLinkHandler,
+  moveSessionContextSchema,
+  moveSessionContextMetadata,
+  createMoveSessionContextHandler,
+  mergeContextsSchema,
+  mergeContextsMetadata,
+  createMergeContextsHandler,
+  splitContextSchema,
+  splitContextMetadata,
+  createSplitContextHandler,
+  setActiveContextSchema,
+  setActiveContextMetadata,
+  createSetActiveContextHandler,
+  getSessionSchema,
+  getSessionMetadata,
+  createGetSessionHandler,
+  exportSessionsSchema,
+  exportSessionsMetadata,
+  createExportSessionsHandler,
+  getSessionMessagesSchema,
+  getSessionMessagesMetadata,
+  createGetSessionMessagesHandler,
+  getSessionTrendsSchema,
+  getSessionTrendsMetadata,
+  createGetSessionTrendsHandler,
+  getSessionTimelineSchema,
+  getSessionTimelineMetadata,
+  createGetSessionTimelineHandler,
+  getSessionArtifactsSchema,
+  getSessionArtifactsMetadata,
+  createGetSessionArtifactsHandler,
+  getSessionNarrativeSchema,
+  getSessionNarrativeMetadata,
+  createGetSessionNarrativeHandler,
+  getSessionDecisionsSchema,
+  getSessionDecisionsMetadata,
+  createGetSessionDecisionsHandler,
+  searchHistorySchema,
+  searchHistoryMetadata,
+  createSearchHistoryHandler,
+  getHistoryTrendsSchema,
+  getHistoryTrendsMetadata,
+  createGetHistoryTrendsHandler,
+  getHistoryHandoffSchema,
+  getHistoryHandoffMetadata,
+  createGetHistoryHandoffHandler,
+  reingestSessionSchema,
+  reingestSessionMetadata,
+  createReingestSessionHandler,
 } from "./tools/index.js";
 
 /**
@@ -62,6 +134,7 @@ export class FootprintServer {
   private db: EvidenceDatabase;
   private derivedKey: Uint8Array | null = null;
   private keyDerivationPromise: Promise<Uint8Array> | null = null;
+  private shutdownPromise: Promise<void> | null = null;
 
   constructor(config: ServerConfig) {
     this.config = config;
@@ -76,11 +149,11 @@ export class FootprintServer {
 
     this.server = new McpServer({
       name: config.name || "footprint",
-      version: config.version || "1.5.0",
+      version: config.version || PKG_VERSION,
     });
 
     // Register UI resources for MCP Apps
-    registerUIResources(this.server);
+    registerUIResources(this.server, { distDir: config.uiDistDir });
 
     this.registerTools();
     this.registerResources();
@@ -250,25 +323,245 @@ export class FootprintServer {
       },
       createManageTagsHandler(this.db),
     );
+
+    this.server.registerTool(
+      "list-sessions",
+      {
+        ...listSessionsMetadata,
+        inputSchema: listSessionsSchema.inputSchema,
+        outputSchema: listSessionsSchema.outputSchema,
+      },
+      createListSessionsHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "list-contexts",
+      {
+        ...listContextsMetadata,
+        inputSchema: listContextsSchema.inputSchema,
+        outputSchema: listContextsSchema.outputSchema,
+      },
+      createListContextsHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "get-context",
+      {
+        ...getContextMetadata,
+        inputSchema: getContextSchema.inputSchema,
+        outputSchema: getContextSchema.outputSchema,
+      },
+      createGetContextHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "resolve-context",
+      {
+        ...resolveContextMetadata,
+        inputSchema: resolveContextSchema.inputSchema,
+        outputSchema: resolveContextSchema.outputSchema,
+      },
+      createResolveContextHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "confirm-context-link",
+      {
+        ...confirmContextLinkMetadata,
+        inputSchema: confirmContextLinkSchema.inputSchema,
+        outputSchema: confirmContextLinkSchema.outputSchema,
+      },
+      createConfirmContextLinkHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "reject-context-link",
+      {
+        ...rejectContextLinkMetadata,
+        inputSchema: rejectContextLinkSchema.inputSchema,
+        outputSchema: rejectContextLinkSchema.outputSchema,
+      },
+      createRejectContextLinkHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "move-session-context",
+      {
+        ...moveSessionContextMetadata,
+        inputSchema: moveSessionContextSchema.inputSchema,
+        outputSchema: moveSessionContextSchema.outputSchema,
+      },
+      createMoveSessionContextHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "merge-contexts",
+      {
+        ...mergeContextsMetadata,
+        inputSchema: mergeContextsSchema.inputSchema,
+        outputSchema: mergeContextsSchema.outputSchema,
+      },
+      createMergeContextsHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "split-context",
+      {
+        ...splitContextMetadata,
+        inputSchema: splitContextSchema.inputSchema,
+        outputSchema: splitContextSchema.outputSchema,
+      },
+      createSplitContextHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "set-active-context",
+      {
+        ...setActiveContextMetadata,
+        inputSchema: setActiveContextSchema.inputSchema,
+        outputSchema: setActiveContextSchema.outputSchema,
+      },
+      createSetActiveContextHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "get-session",
+      {
+        ...getSessionMetadata,
+        inputSchema: getSessionSchema.inputSchema,
+        outputSchema: getSessionSchema.outputSchema,
+      },
+      createGetSessionHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "export-sessions",
+      {
+        ...exportSessionsMetadata,
+        inputSchema: exportSessionsSchema.inputSchema,
+        outputSchema: exportSessionsSchema.outputSchema,
+      },
+      createExportSessionsHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "get-session-messages",
+      {
+        ...getSessionMessagesMetadata,
+        inputSchema: getSessionMessagesSchema.inputSchema,
+        outputSchema: getSessionMessagesSchema.outputSchema,
+      },
+      createGetSessionMessagesHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "get-session-trends",
+      {
+        ...getSessionTrendsMetadata,
+        inputSchema: getSessionTrendsSchema.inputSchema,
+        outputSchema: getSessionTrendsSchema.outputSchema,
+      },
+      createGetSessionTrendsHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "get-session-timeline",
+      {
+        ...getSessionTimelineMetadata,
+        inputSchema: getSessionTimelineSchema.inputSchema,
+        outputSchema: getSessionTimelineSchema.outputSchema,
+      },
+      createGetSessionTimelineHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "get-session-artifacts",
+      {
+        ...getSessionArtifactsMetadata,
+        inputSchema: getSessionArtifactsSchema.inputSchema,
+        outputSchema: getSessionArtifactsSchema.outputSchema,
+      },
+      createGetSessionArtifactsHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "get-session-narrative",
+      {
+        ...getSessionNarrativeMetadata,
+        inputSchema: getSessionNarrativeSchema.inputSchema,
+        outputSchema: getSessionNarrativeSchema.outputSchema,
+      },
+      createGetSessionNarrativeHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "get-session-decisions",
+      {
+        ...getSessionDecisionsMetadata,
+        inputSchema: getSessionDecisionsSchema.inputSchema,
+        outputSchema: getSessionDecisionsSchema.outputSchema,
+      },
+      createGetSessionDecisionsHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "search-history",
+      {
+        ...searchHistoryMetadata,
+        inputSchema: searchHistorySchema.inputSchema,
+        outputSchema: searchHistorySchema.outputSchema,
+      },
+      createSearchHistoryHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "get-history-trends",
+      {
+        ...getHistoryTrendsMetadata,
+        inputSchema: getHistoryTrendsSchema.inputSchema,
+        outputSchema: getHistoryTrendsSchema.outputSchema,
+      },
+      createGetHistoryTrendsHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "get-history-handoff",
+      {
+        ...getHistoryHandoffMetadata,
+        inputSchema: getHistoryHandoffSchema.inputSchema,
+        outputSchema: getHistoryHandoffSchema.outputSchema,
+      },
+      createGetHistoryHandoffHandler(this.db),
+    );
+
+    this.server.registerTool(
+      "reingest-session",
+      {
+        ...reingestSessionMetadata,
+        inputSchema: reingestSessionSchema.inputSchema,
+        outputSchema: reingestSessionSchema.outputSchema,
+      },
+      createReingestSessionHandler(this.db),
+    );
   }
 
   private registerResources(): void {
     this.server.registerResource(
-      "footprint",
-      new ResourceTemplate("footprint://{id}", { list: undefined }),
+      "evidence",
+      new ResourceTemplate("evidence://{id}", { list: undefined }),
       {
-        title: "Footprint Content",
+        title: "Evidence Content",
         description: "Access encrypted footprint record by ID",
         mimeType: "text/plain",
       },
       async (uri, { id }) => {
         try {
           if (!id || typeof id !== "string" || !/^[a-zA-Z0-9_-]+$/.test(id)) {
-            throw new Error("Invalid footprint ID format");
+            throw new Error("Invalid evidence ID format");
           }
           const evidence = this.db.findById(id as string);
           if (!evidence) {
-            throw new Error(`Footprint with ID ${id} not found`);
+            throw new Error(`Evidence with ID ${id} not found`);
           }
 
           const key = await this.getDerivedKey();
@@ -285,16 +578,36 @@ export class FootprintServer {
           };
         } catch (error) {
           throw new Error(
-            `Failed to access footprint resource: ${getErrorMessage(error)}`,
+            `Failed to access evidence resource: ${getErrorMessage(error)}`,
           );
         }
       },
     );
   }
 
-  async start(): Promise<void> {
-    const transport = new StdioServerTransport();
+  async connect(transport: Transport): Promise<void> {
     await this.server.connect(transport);
+  }
+
+  async start(): Promise<void> {
+    await this.connect(new StdioServerTransport());
+  }
+
+  async shutdown(): Promise<void> {
+    if (this.shutdownPromise) {
+      return this.shutdownPromise;
+    }
+
+    this.shutdownPromise = (async () => {
+      try {
+        await this.server.close();
+      } finally {
+        this.clearDerivedKey();
+        this.db.close();
+      }
+    })();
+
+    return this.shutdownPromise;
   }
 
   /**
@@ -302,8 +615,7 @@ export class FootprintServer {
    * Clears derived key from memory and closes database
    */
   close(): void {
-    this.clearDerivedKey();
-    this.db.close();
+    void this.shutdown().catch(() => {});
   }
 }
 
@@ -312,7 +624,7 @@ export async function main(): Promise<void> {
   const config: ServerConfig = {
     dbPath: process.env.FOOTPRINT_DATA_DIR
       ? path.join(process.env.FOOTPRINT_DATA_DIR, "footprint.db")
-      : process.env.FOOTPRINT_DB_PATH || "./footprint.db",
+      : process.env.FOOTPRINT_DB_PATH || "./evidence.db",
     password:
       process.env.FOOTPRINT_PASSPHRASE || process.env.FOOTPRINT_PASSWORD || "",
   };

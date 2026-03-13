@@ -8,6 +8,9 @@ export interface ServerConfig {
   /** Password for encrypting/decrypting evidence */
   password: string;
 
+  /** Optional override for the built MCP app UI directory */
+  uiDistDir?: string;
+
   /** Server name (for MCP protocol) */
   name?: string;
 

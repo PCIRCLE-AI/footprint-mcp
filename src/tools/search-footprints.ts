@@ -33,7 +33,7 @@ export const searchFootprintsSchema = {
     offset: z.number().int().min(0).optional().describe("Pagination offset"),
   },
   outputSchema: {
-    footprints: z.array(
+    evidences: z.array(
       z.object({
         id: z.string(),
         timestamp: z.string(),
@@ -121,7 +121,7 @@ export function createSearchFootprintsHandler(db: EvidenceDatabase) {
           Tags: params.tags?.join(", ") || "None",
           "Date Range": `${params.dateFrom || "Start"} to ${params.dateTo || "End"}`,
         },
-        { footprints: mappedEvidences, total },
+        { evidences: mappedEvidences, total },
       );
     },
   );

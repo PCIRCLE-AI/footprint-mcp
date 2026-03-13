@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { FootprintServer } from "../src/index.js";
-import { FootprintTestHelpers } from "../src/test-helpers.js";
+import { FootprintTestHelpers } from "./test-helpers.js";
 import type { ServerConfig } from "../src/types.js";
 import * as fs from "fs";
 import * as path from "path";
@@ -15,8 +15,8 @@ describe("MCP Tools", () => {
 
   beforeEach(() => {
     // Create unique temporary directory for each test
-    tempDir = fs.mkdtempSync(path.join(tmpdir(), "footprint-mcp-test-"));
-    testDbPath = path.join(tempDir, "test-footprint.db");
+    tempDir = fs.mkdtempSync(path.join(tmpdir(), "evidence-mcp-test-"));
+    testDbPath = path.join(tempDir, "test-evidence.db");
 
     // Clean up any existing test database
     if (fs.existsSync(testDbPath)) {
@@ -129,9 +129,9 @@ describe("MCP Tools", () => {
       });
 
       expect(result).toHaveProperty("structuredContent");
-      expect(result.structuredContent).toHaveProperty("footprints");
+      expect(result.structuredContent).toHaveProperty("evidences");
       expect(result.structuredContent).toHaveProperty("total");
-      expect(result.structuredContent.footprints).toHaveLength(0);
+      expect(result.structuredContent.evidences).toHaveLength(0);
       expect(result.structuredContent.total).toBe(0);
     });
 

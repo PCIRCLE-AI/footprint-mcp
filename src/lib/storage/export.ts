@@ -11,13 +11,13 @@ export interface ExportResult {
   filename: string; // Generated filename
   zipData: Uint8Array; // ZIP file data
   checksum: string; // SHA-256 of zip file
-  footprintCount: number; // Number of footprints exported
+  evidenceCount: number; // Number of evidences exported
 }
 
 interface ManifestData {
   version: string;
   exportDate: string;
-  footprintCount: number;
+  evidenceCount: number;
   includeGitInfo: boolean;
 }
 
@@ -61,7 +61,7 @@ export async function exportEvidences(
         }
       }
       if (notFound.length > 0) {
-        throw new Error(`Footprint IDs not found: ${notFound.join(", ")}`);
+        throw new Error(`Evidence IDs not found: ${notFound.join(", ")}`);
       }
       evidences = found;
     } else {
@@ -69,7 +69,7 @@ export async function exportEvidences(
       const totalCount = db.getTotalCount();
       if (totalCount > 10000) {
         throw new Error(
-          `Too many footprints to export at once (${totalCount}). ` +
+          `Too many evidences to export at once (${totalCount}). ` +
             `Please use evidenceIds to export in batches of up to 10,000.`,
         );
       }
@@ -95,7 +95,7 @@ export async function exportEvidences(
     const manifest: ManifestData = {
       version: EXPORT_FORMAT_VERSION,
       exportDate: new Date().toISOString(),
-      footprintCount: evidences.length,
+      evidenceCount: evidences.length,
       includeGitInfo,
     };
     zip.file("manifest.json", JSON.stringify(manifest, null, 2));
@@ -174,17 +174,17 @@ export async function exportEvidences(
     // Generate filename with random suffix for unpredictability
     const timestamp = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
     const uniqueSuffix = randomUUID().slice(0, 8);
-    const filename = `footprint-export-${timestamp}-${uniqueSuffix}.zip`;
+    const filename = `evidence-export-${timestamp}-${uniqueSuffix}.zip`;
 
     return {
       filename,
       zipData,
       checksum: zipChecksum,
-      footprintCount: evidences.length,
+      evidenceCount: evidences.length,
     };
   } catch (error) {
     throw new Error(
-      `Failed to export footprints: ${error instanceof Error ? error.message : "Unknown error"}`,
+      `Failed to export evidences: ${error instanceof Error ? error.message : "Unknown error"}`,
     );
   }
 }

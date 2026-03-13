@@ -48,7 +48,7 @@ export function createDeleteFootprintsHandler(db: EvidenceDatabase) {
     "Verify the footprint IDs exist.",
     async (params: { evidenceIds: string[]; confirmDelete?: boolean }) => {
       if (!params.evidenceIds || params.evidenceIds.length === 0) {
-        throw new Error("At least one footprint ID is required");
+        throw new Error("At least one evidence ID is required");
       }
       if (params.evidenceIds.length > 100) {
         throw new Error(

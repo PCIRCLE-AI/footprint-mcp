@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-03-12
+
+### Added
+
+- Confirmation-first context memory with resolve, confirm, reject, move, merge, split, and activate flows
+- Context review and correction UI surfaces inside the session dashboard and detail views
+- Paginated session detail surfaces for messages, timeline, artifacts, narratives, decisions, and related trends
+- Multilingual project site with additional product screenshots and clearer install guidance
+- GitHub Actions workflow for npm publish plus maintainer release documentation
+
+### Changed
+
+- Session and history surfaces now read more like product briefings instead of raw technical dumps
+- Quick-try docs now correctly use `npx @pcircle/footprint ...` when the CLI is not installed globally
+- Package publish metadata now enables public access and provenance by default
+
+### Fixed
+
+- Context preflight no longer silently overuses workspace-preferred contexts for unrelated work
+- History cache upgrades rebuild stale materialized data instead of preserving outdated rows forever
+- Handoff and trend summaries now preserve full blocker and recovery totals beyond preview limits
+
 ## [1.5.0] - 2026-02-18
 
 ### Changed
@@ -134,63 +156,3 @@ npm install @pcircle/footprint
 ```
 
 Update your MCP config to use `footprint` instead of `evidencemcp`.
-
-## [0.3.0] - 2026-01-28
-
-### Added
-
-- Delete evidence functionality
-- Tag management (rename, remove, stats)
-- Search with highlighting
-- Batch operations UI
-
-## [0.2.0] - 2026-01-26
-
-### Added
-
-- MCP Apps interactive UI dashboard
-- Real-time capture status
-- Timeline visualization
-- Tag filtering
-
-## [0.1.0] - 2026-01-24
-
-### Added
-
-- Initial release of EvidenceMCP MCP Server
-- MCP tools for evidence management:
-  - `capture-evidence` - Capture and encrypt LLM conversations
-  - `list-evidences` - List all captured evidence with pagination
-  - `get-evidence` - Retrieve and decrypt specific evidence
-  - `export-evidences` - Export evidences to encrypted ZIP archive
-- MCP resource: `evidence://{id}` - Access decrypted evidence via URI
-- End-to-end encryption using XChaCha20-Poly1305 (256-bit keys)
-- Password-based key derivation using Argon2id (OWASP recommended params)
-- Git timestamp integration for provable timestamps
-- SQLite database with encrypted BLOB storage
-- SHA-256 content integrity verification
-- Comprehensive test suite (19 tests covering tools, resources, integration, error handling)
-- Complete API documentation in README
-- Troubleshooting guide with 8 common issues
-- Security documentation
-- Architecture diagram
-- TypeScript support with full type definitions
-- Command-line interface via `evidencemcp-mcp` binary
-
-### Security
-
-- All conversation content encrypted at rest
-- Encryption keys derived from user password (never stored)
-- Content integrity verified with SHA-256 hashes
-- Local-first architecture (no cloud dependencies)
-
-### Documentation
-
-- Complete README with Quick Start guide
-- API documentation for all tools and resources
-- Programmatic usage examples
-- Security best practices
-- Troubleshooting guide
-- Architecture documentation
-
-[0.1.0]: https://github.com/PCIRCLE-AI/evidencemcp/releases/tag/mcp-server-v0.1.0

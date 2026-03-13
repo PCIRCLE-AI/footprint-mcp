@@ -420,6 +420,7 @@ export async function runSetup(): Promise<void> {
     if (!config) {
       console.log(chalk.yellow("\nSetup cancelled."));
       process.exit(0);
+      return;
     }
 
     // Print security warning about password storage
@@ -481,6 +482,7 @@ export async function runSetup(): Promise<void> {
     console.log(chalk.gray("  • Verify disk space is available\n"));
 
     process.exit(1);
+    return;
   }
 }
 

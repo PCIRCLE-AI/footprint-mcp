@@ -1,4 +1,4 @@
-/* global NodeJS, process, console */
+/* global process, console */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "fs";
@@ -38,25 +38,37 @@ vi.mock("../../src/cli/utils/detect.js", () => ({
 // Import after mocks are set up
 import { runSetup } from "../../src/cli/setup.js";
 import { detectSystem } from "../../src/cli/utils/detect.js";
-import * as os from "os";
 
-describe("CLI Integration Tests", () => {
+// These tests cover the setup wizard flow. Slice A recorder coverage lives in
+// tests/cli/session-recorder.test.ts.
+describe("CLI Setup Integration", () => {
+  let sandboxHomeDir: string;
   let tempDir: string;
   let tempConfigPath: string;
   let tempShellRcPath: string;
-  let originalEnv: NodeJS.ProcessEnv;
+  let originalHome: string | undefined;
+  let originalUserProfile: string | undefined;
 
-  beforeEach(() => {
-    // Create temp directory for test files inside user's home directory
-    // This is required because validatePath now restricts paths to home directory
+  beforeEach(async () => {
+    const prompts = await import("prompts");
+    const ora = await import("ora");
+
+    vi.mocked(prompts.default).mockReset();
+    vi.mocked(ora.default).mockReset();
+    vi.mocked(detectSystem).mockReset();
+
+    // Use an isolated fake home directory so validation stays realistic without
+    // depending on the developer machine's actual HOME path or permissions.
+    sandboxHomeDir = fs.mkdtempSync(path.join(tmpdir(), "footprint-home-"));
+    originalHome = process.env.HOME;
+    originalUserProfile = process.env.USERPROFILE;
+    process.env.HOME = sandboxHomeDir;
+    process.env.USERPROFILE = sandboxHomeDir;
     tempDir = fs.mkdtempSync(
-      path.join(os.homedir(), ".footprint-integration-test-"),
+      path.join(sandboxHomeDir, ".footprint-integration-test-"),
     );
     tempConfigPath = path.join(tempDir, "claude_desktop_config.json");
     tempShellRcPath = path.join(tempDir, ".zshrc");
-
-    // Save original environment
-    originalEnv = { ...process.env };
 
     // Mock console methods - keep error visible for debugging
     vi.spyOn(console, "log").mockImplementation(() => {});
@@ -68,13 +80,22 @@ describe("CLI Integration Tests", () => {
   });
 
   afterEach(() => {
-    // Clean up temp directory
-    if (fs.existsSync(tempDir)) {
-      fs.rmSync(tempDir, { recursive: true });
+    // Clean up fake home directory and all generated test files.
+    if (sandboxHomeDir && fs.existsSync(sandboxHomeDir)) {
+      fs.rmSync(sandboxHomeDir, { recursive: true });
     }
 
     // Restore environment
-    process.env = originalEnv;
+    if (originalHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = originalHome;
+    }
+    if (originalUserProfile === undefined) {
+      delete process.env.USERPROFILE;
+    } else {
+      process.env.USERPROFILE = originalUserProfile;
+    }
 
     // Restore console
     vi.restoreAllMocks();
@@ -103,24 +124,16 @@ describe("CLI Integration Tests", () => {
 
     // Mock prompts module
     const prompts = await import("prompts");
-    type PromptsResponse = Record<string, string | boolean | undefined>;
-    vi.mocked(prompts.default).mockImplementation(
-      async (questions: unknown): Promise<PromptsResponse> => {
-        // First prompt batch (main setup)
-        if (Array.isArray(questions)) {
-          return {
-            dataDir: path.join(tempDir, ".footprint"),
-            passphrase: "test-secure-password-12345",
-            confirmPassphrase: "test-secure-password-12345",
-            autoConfig: true,
-          };
-        }
-        // Second prompt (environment setup)
-        return {
-          setupEnv: false, // Skip env setup for this test
-        };
-      },
-    );
+    vi.mocked(prompts.default)
+      .mockResolvedValueOnce({
+        dataDir: path.join(tempDir, ".footprint"),
+        passphrase: "test-secure-password-12345",
+        confirmPassphrase: "test-secure-password-12345",
+        autoConfig: true,
+      } satisfies PromptsResponse)
+      .mockResolvedValueOnce({
+        setupEnv: false,
+      } satisfies PromptsResponse);
 
     // Mock ora spinner
     const ora = await import("ora");
@@ -224,19 +237,14 @@ describe("CLI Integration Tests", () => {
 
     // Mock prompts
     const prompts = await import("prompts");
-    vi.mocked(prompts.default).mockImplementation(
-      async (questions: unknown): Promise<PromptsResponse> => {
-        if (Array.isArray(questions)) {
-          return {
-            dataDir: path.join(tempDir, ".footprint"),
-            passphrase: "secure-test-pass-123456",
-            confirmPassphrase: "secure-test-pass-123456",
-            autoConfig: true,
-          };
-        }
-        return { setupEnv: false };
-      },
-    );
+    vi.mocked(prompts.default)
+      .mockResolvedValueOnce({
+        dataDir: path.join(tempDir, ".footprint"),
+        passphrase: "secure-test-pass-123456",
+        confirmPassphrase: "secure-test-pass-123456",
+        autoConfig: true,
+      } satisfies PromptsResponse)
+      .mockResolvedValueOnce({ setupEnv: false } satisfies PromptsResponse);
 
     // Mock ora
     const ora = await import("ora");
@@ -287,20 +295,14 @@ describe("CLI Integration Tests", () => {
 
     // Mock prompts
     const prompts = await import("prompts");
-    vi.mocked(prompts.default).mockImplementation(
-      async (questions: unknown): Promise<PromptsResponse> => {
-        if (Array.isArray(questions)) {
-          return {
-            dataDir: path.join(tempDir, ".footprint"),
-            passphrase: "env-test-password-123456",
-            confirmPassphrase: "env-test-password-123456",
-            autoConfig: false, // Skip Claude config
-          };
-        }
-        // Environment setup prompt
-        return { setupEnv: true };
-      },
-    );
+    vi.mocked(prompts.default)
+      .mockResolvedValueOnce({
+        dataDir: path.join(tempDir, ".footprint"),
+        passphrase: "env-test-password-123456",
+        confirmPassphrase: "env-test-password-123456",
+        autoConfig: false,
+      } satisfies PromptsResponse)
+      .mockResolvedValueOnce({ setupEnv: true } satisfies PromptsResponse);
 
     // Mock ora
     const ora = await import("ora");
@@ -339,19 +341,14 @@ describe("CLI Integration Tests", () => {
 
     // Mock prompts
     const prompts = await import("prompts");
-    vi.mocked(prompts.default).mockImplementation(
-      async (questions: unknown): Promise<PromptsResponse> => {
-        if (Array.isArray(questions)) {
-          return {
-            dataDir: path.join(tempDir, ".footprint"),
-            passphrase: "no-claude-pass-123456",
-            confirmPassphrase: "no-claude-pass-123456",
-            autoConfig: undefined, // autoConfig question not shown
-          };
-        }
-        return { setupEnv: false };
-      },
-    );
+    vi.mocked(prompts.default)
+      .mockResolvedValueOnce({
+        dataDir: path.join(tempDir, ".footprint"),
+        passphrase: "no-claude-pass-123456",
+        confirmPassphrase: "no-claude-pass-123456",
+        autoConfig: undefined,
+      } satisfies PromptsResponse)
+      .mockResolvedValueOnce({ setupEnv: false } satisfies PromptsResponse);
 
     // Mock ora
     const ora = await import("ora");
@@ -395,19 +392,12 @@ describe("CLI Integration Tests", () => {
 
     // Mock prompts
     const prompts = await import("prompts");
-    vi.mocked(prompts.default).mockImplementation(
-      async (questions: unknown): Promise<PromptsResponse> => {
-        if (Array.isArray(questions)) {
-          return {
-            dataDir: path.join(tempDir, ".footprint"),
-            passphrase: "error-test-pass-123456",
-            confirmPassphrase: "error-test-pass-123456",
-            autoConfig: true,
-          };
-        }
-        return { setupEnv: false };
-      },
-    );
+    vi.mocked(prompts.default).mockResolvedValueOnce({
+      dataDir: path.join(tempDir, ".footprint"),
+      passphrase: "error-test-pass-123456",
+      confirmPassphrase: "error-test-pass-123456",
+      autoConfig: true,
+    } satisfies PromptsResponse);
 
     // Mock ora
     const ora = await import("ora");

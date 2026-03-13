@@ -11,8 +11,8 @@ describe("MCP Prompts", () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(tmpdir(), "footprint-prompts-test-"));
-    testDbPath = path.join(tempDir, "test-footprint.db");
+    tempDir = fs.mkdtempSync(path.join(tmpdir(), "evidence-prompts-test-"));
+    testDbPath = path.join(tempDir, "test-evidence.db");
     const config: ServerConfig = {
       dbPath: testDbPath,
       password: "test-password-123",
@@ -25,7 +25,7 @@ describe("MCP Prompts", () => {
       if (tempDir && fs.existsSync(tempDir)) {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
-    } catch (_e) {
+    } catch {
       // Ignore cleanup errors
     }
   });

@@ -1,9 +1,38 @@
-import { registerAppResource, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
+import {
+  registerAppResource,
+  RESOURCE_MIME_TYPE,
+} from "@modelcontextprotocol/ext-apps/server";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
-const DIST_DIR = path.join(import.meta.dirname, "../../dist/ui");
+function isBuiltUIDirectory(distDir: string): boolean {
+  const normalized = path.normalize(distDir);
+  return (
+    normalized.endsWith(path.join("dist", "ui")) &&
+    existsSync(path.join(distDir, "dashboard.html"))
+  );
+}
+
+export function resolveDefaultUIDistDir(
+  baseDir: string = import.meta.dirname,
+): string {
+  const candidates = [
+    path.resolve(baseDir, "../../dist/ui"),
+    path.resolve(baseDir, "../../ui"),
+  ];
+
+  for (const candidate of candidates) {
+    if (isBuiltUIDirectory(candidate)) {
+      return candidate;
+    }
+  }
+
+  return candidates[0];
+}
+
+const DEFAULT_DIST_DIR = resolveDefaultUIDistDir();
 
 interface UIResourceConfig {
   uri: string;
@@ -13,31 +42,43 @@ interface UIResourceConfig {
   description: string;
 }
 
+interface UIRegistrationOptions {
+  distDir?: string;
+}
+
+function shouldLogUIRegistration(): boolean {
+  return process.env.FOOTPRINT_DEBUG_UI === "1";
+}
+
 /**
  * Create a resource handler for a UI file
  */
-function createUIResourceHandler(config: UIResourceConfig) {
+function createUIResourceHandler(config: UIResourceConfig, distDir: string) {
   return async () => {
     try {
-      const htmlPath = path.join(DIST_DIR, config.filename);
+      const htmlPath = path.join(distDir, config.filename);
       const html = await fs.readFile(htmlPath, "utf-8");
 
       return {
-        contents: [{
-          uri: config.uri,
-          mimeType: RESOURCE_MIME_TYPE,
-          text: html,
-        }],
+        contents: [
+          {
+            uri: config.uri,
+            mimeType: RESOURCE_MIME_TYPE,
+            text: html,
+          },
+        ],
       };
     } catch (error) {
       console.error(`Failed to load ${config.filename}:`, error);
 
       return {
-        contents: [{
-          uri: config.uri,
-          mimeType: RESOURCE_MIME_TYPE,
-          text: createFallbackHTML(config),
-        }],
+        contents: [
+          {
+            uri: config.uri,
+            mimeType: RESOURCE_MIME_TYPE,
+            text: createFallbackHTML(config),
+          },
+        ],
       };
     }
   };
@@ -70,43 +111,68 @@ function createFallbackHTML(config: UIResourceConfig): string {
   `;
 }
 
-export function registerUIResources(server: McpServer) {
+export function registerUIResources(
+  server: McpServer,
+  options?: UIRegistrationOptions,
+) {
+  const distDir = options?.distDir
+    ? path.resolve(options.distDir)
+    : DEFAULT_DIST_DIR;
   const resources: UIResourceConfig[] = [
     {
       uri: "ui://footprint/dashboard.html",
       filename: "dashboard.html",
       title: "Footprint Dashboard",
       emoji: "🔐",
-      description: "Dashboard"
+      description: "Dashboard",
     },
     {
       uri: "ui://footprint/detail.html",
       filename: "detail.html",
-      title: "Footprint Detail",
+      title: "Evidence Detail - Footprint",
       emoji: "🔍",
-      description: "Detail view"
+      description: "Detail view",
     },
     {
       uri: "ui://footprint/export.html",
       filename: "export.html",
-      title: "Export Footprint",
+      title: "Export Evidence - Footprint",
       emoji: "📦",
-      description: "Export view"
-    }
+      description: "Export view",
+    },
+    {
+      uri: "ui://footprint/session-dashboard.html",
+      filename: "session-dashboard.html",
+      title: "Session Dashboard - Footprint",
+      emoji: "🧭",
+      description: "Session dashboard",
+    },
+    {
+      uri: "ui://footprint/session-detail.html",
+      filename: "session-detail.html",
+      title: "Session Detail - Footprint",
+      emoji: "📝",
+      description: "Session detail view",
+    },
   ];
 
   // Register all UI resources using data-driven approach
-  resources.forEach(config => {
+  resources.forEach((config) => {
     registerAppResource(
       server,
       config.uri,
       config.uri,
       { mimeType: RESOURCE_MIME_TYPE },
-      createUIResourceHandler(config)
+      createUIResourceHandler(config, distDir),
     );
   });
 
-  console.log("Registered UI resources:", resources.map(r => r.uri).join(", "));
+  if (shouldLogUIRegistration()) {
+    console.error(
+      "Registered UI resources:",
+      resources.map((resource) => resource.uri).join(", "),
+    );
+  }
 
   return {
     dashboardUri: resources[0].uri,

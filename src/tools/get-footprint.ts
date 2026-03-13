@@ -46,11 +46,11 @@ export function createGetFootprintHandler(
 ) {
   return wrapToolHandler(
     "get-footprint",
-    "Verify the footprint ID exists and password is correct.",
+    "Verify the evidence ID exists and password is correct.",
     async (params: { id: string }) => {
       const evidence = db.findById(params.id);
       if (!evidence) {
-        throw new Error(`Footprint not found: ${params.id}`);
+        throw new Error(`Evidence not found: ${params.id}`);
       }
 
       const key = await getDerivedKey();
@@ -65,7 +65,7 @@ export function createGetFootprintHandler(
           : null;
 
       return formatSuccessResponse(
-        "Footprint retrieved successfully",
+        "Evidence retrieved successfully",
         {
           ID: evidence.id,
           Timestamp: evidence.timestamp,

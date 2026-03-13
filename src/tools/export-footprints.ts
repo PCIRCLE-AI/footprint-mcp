@@ -10,7 +10,7 @@ export const exportFootprintsSchema = {
       .array(z.string())
       .optional()
       .describe(
-        "Specific footprint IDs to export. If omitted, exports all footprints.",
+        "Specific evidence IDs to export. If omitted, exports all evidence.",
       ),
     includeGitInfo: z
       .boolean()
@@ -27,7 +27,7 @@ export const exportFootprintsSchema = {
     filename: z.string().optional(),
     base64Data: z.string().optional(),
     checksum: z.string(),
-    footprintCount: z.number(),
+    evidenceCount: z.number(),
     success: z.boolean(),
   },
 };
@@ -99,7 +99,7 @@ export function createExportFootprintsHandler(db: EvidenceDatabase) {
         string,
         string | number | boolean | null | undefined
       > = {
-        "Footprint Count": result.footprintCount,
+        "Footprint Count": result.evidenceCount,
         Checksum: result.checksum,
         "Git Info": params.includeGitInfo ? "Included" : "Excluded",
         "Output Mode": outputMode,
@@ -112,7 +112,7 @@ export function createExportFootprintsHandler(db: EvidenceDatabase) {
         ...(filename && { filename }),
         ...(base64Data && { base64Data }),
         checksum: result.checksum,
-        footprintCount: result.footprintCount,
+        evidenceCount: result.evidenceCount,
         success: true,
       });
     },

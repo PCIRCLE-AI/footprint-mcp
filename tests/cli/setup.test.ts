@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from "vitest";
-import { runSetup } from "../../src/cli/setup.js";
 
 describe("Interactive Setup", () => {
   it("should complete setup with valid inputs", async () => {

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="sessionDetail.documentTitle">Footprint Work Record</title>
+  <link rel="stylesheet" href="./src/footprint-theme.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="page-hero">
+      <div class="page-hero-toolbar">
+        <span class="page-kicker" data-i18n="sessionDetail.kicker">Work briefing</span>
+        <div class="locale-switch">
+          <label for="locale-select" data-i18n="common.language">Language</label>
+          <select id="locale-select" aria-label="Language" data-i18n-aria-label="common.language">
+            <option value="en" data-i18n="common.locale.en">English</option>
+            <option value="zh-TW" data-i18n="common.locale.zh-TW">繁體中文</option>
+            <option value="ja" data-i18n="common.locale.ja">日本語</option>
+            <option value="zh-CN" data-i18n="common.locale.zh-CN">简体中文</option>
+          </select>
+        </div>
+      </div>
+      <div class="page-title-row">
+        <div>
+          <h1 class="page-title" data-i18n="sessionDetail.title">This Work</h1>
+          <p class="page-subtitle" id="subtitle" data-i18n="sessionDetail.subtitle.loading">Loading this saved work record...</p>
+        </div>
+      </div>
+      <p class="page-note" data-i18n="sessionDetail.noteHtml" data-i18n-html>If you are picking this up fresh, start with <strong>Read This First</strong> and <strong>Pickup Note</strong>. The conversation and activity log stay lower on the page so the first screen stays practical.</p>
+    </header>
+    <div id="error"></div>
+    <div class="meta" id="meta"></div>
+    <div class="card">
+      <div class="actions">
+        <button id="reingest-button" onclick="reingestSession()" data-i18n="sessionDetail.refreshOverview">Refresh Overview</button>
+        <button class="secondary" onclick="exportSessionBundle()" data-i18n="common.exportZip">Export ZIP</button>
+        <button class="secondary" onclick="loadArtifacts()" data-i18n="sessionDetail.loadSupportingDetails">Load Supporting Details</button>
+        <button class="secondary" onclick="loadNarratives()" data-i18n="sessionDetail.loadSimpleSummary">Load Simple Summary</button>
+        <button class="secondary" onclick="loadDecisions()" data-i18n="sessionDetail.loadKeyDecisions">Load Key Decisions</button>
+      </div>
+    </div>
+    <div class="split">
+      <div class="card">
+        <h2 data-i18n="sessionDetail.readThisFirst">Read This First</h2>
+        <p class="muted" id="context-summary">Checking whether this work belongs to an existing topic...</p>
+        <ul class="list" id="context-current">
+          <li class="muted" data-i18n="sessionDetail.noConfirmedTopic">No confirmed topic summary yet.</li>
+        </ul>
+        <div class="actions">
+          <button class="secondary" id="refresh-context-button" data-action="refresh-context" data-i18n="sessionDetail.refreshContext">Check Again</button>
+        </div>
+        <div class="actions">
+          <div class="field">
+            <label for="context-target-select" data-i18n="sessionDetail.moveTopic">Move Into Another Topic</label>
+            <select id="context-target-select"></select>
+          </div>
+          <button class="secondary" id="move-context-button" data-action="move-to-selected-context" data-i18n="sessionDetail.moveThere">Move There</button>
+          <button class="secondary" id="set-active-context-button" data-action="set-selected-context-active" data-i18n="sessionDetail.makeMainTopic">Make This The Main Topic</button>
+        </div>
+        <div class="actions">
+          <div class="field">
+            <label for="context-create-label" data-i18n="sessionDetail.startNewTopic">Start A New Topic</label>
+            <input id="context-create-label" type="text" placeholder="e.g. Invoice email follow-up" data-i18n-placeholder="sessionDetail.startNewTopic.placeholder" />
+          </div>
+          <button class="secondary" id="create-context-button" data-action="create-context-from-session" data-i18n="sessionDetail.createTopic">Create Topic</button>
+        </div>
+      </div>
+      <div class="card">
+      <h2 data-i18n="sessionDetail.otherTopics">Other Topics This Might Belong To</h2>
+        <p class="muted" id="context-candidates-summary" data-i18n="sessionDetail.otherTopics.summary">Footprint only suggests other topics when it sees enough evidence.</p>
+        <ul class="list" id="context-candidates">
+          <li class="muted" data-i18n="sessionDetail.otherTopics.empty">No possible related topics for this work yet.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="sessionDetail.pickupNote">Pickup Note</h2>
+      <p class="muted" id="scope-handoff-summary" data-i18n="sessionDetail.pickupNote.summary">Pick one item from Related Earlier Work below to load a short pickup note.</p>
+      <div class="actions">
+        <button class="secondary" id="scope-export-button" data-action="export-scope" disabled title="Load a short pickup note first." data-i18n="sessionDetail.pickupExport" data-i18n-title="session.detail.scope.loadFirst">Export Pickup ZIP</button>
+      </div>
+      <ul class="list" id="scope-handoff-results"></ul>
+    </div>
+    <div class="split">
+      <div class="card">
+        <h2 data-i18n="sessionDetail.simpleSummary">Simple Summary</h2>
+        <ul class="list" id="narratives"></ul>
+        <div class="actions">
+          <button
+            type="button"
+            class="secondary"
+            id="load-more-narratives"
+            data-action="load-more-narratives"
+            hidden
+          >
+            <span data-i18n="sessionDetail.loadMoreNarratives">Show More Summaries</span>
+          </button>
+        </div>
+      </div>
+      <div class="card">
+        <h2 data-i18n="sessionDetail.keyDecisions">Key Decisions</h2>
+        <ul class="list" id="decisions"></ul>
+        <div class="actions">
+          <button
+            type="button"
+            class="secondary"
+            id="load-more-decisions"
+            data-action="load-more-decisions"
+            hidden
+          >
+            <span data-i18n="sessionDetail.loadMoreDecisions">Show More Decisions</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="sessionDetail.relatedEarlierWork">Related Earlier Work</h2>
+      <ul class="list" id="trend-context"></ul>
+      <div class="actions">
+        <button
+          type="button"
+          class="secondary"
+          id="load-more-session-trends"
+          data-action="load-more-session-trends"
+          hidden
+        >
+          <span data-i18n="sessionDetail.loadMoreRelatedWork">Show More Related Work</span>
+        </button>
+      </div>
+    </div>
+    <div class="split">
+      <div class="card">
+        <h2 data-i18n="sessionDetail.conversation">Conversation</h2>
+        <ul class="list" id="messages"></ul>
+        <div class="actions">
+          <button
+            type="button"
+            class="secondary"
+            id="load-more-messages"
+            data-action="load-more-messages"
+            hidden
+          >
+            <span data-i18n="sessionDetail.loadMoreConversation">Show More Conversation</span>
+          </button>
+        </div>
+      </div>
+      <div class="card">
+      <h2 data-i18n="sessionDetail.activityLog">Automatic Activity Log</h2>
+        <ul class="list" id="timeline"></ul>
+        <div class="actions">
+          <button
+            type="button"
+            class="secondary"
+            id="load-more-timeline"
+            data-action="load-more-timeline"
+            hidden
+          >
+            <span data-i18n="sessionDetail.loadMoreSteps">Show More Steps</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2 data-i18n="sessionDetail.supportingDetails">Supporting Details</h2>
+      <ul class="list" id="artifacts"></ul>
+      <div class="actions">
+        <button
+          type="button"
+          class="secondary"
+          id="load-more-artifacts"
+          data-action="load-more-artifacts"
+          hidden
+        >
+          <span data-i18n="sessionDetail.loadMoreSupporting">Show More Supporting Details</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./src/session-detail.ts"></script>
+</body>
+</html>

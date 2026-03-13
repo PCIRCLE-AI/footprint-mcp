@@ -2,11 +2,14 @@
  * Test Helper Utilities for Footprint Server
  */
 
-import type { FootprintServer } from "./index.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import type { FootprintServer } from "../src/index.js";
 
 export interface ToolInfo {
   name: string;
   description: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ResourceInfo {
@@ -14,6 +17,68 @@ export interface ResourceInfo {
   uriTemplate: string;
   description: string;
   mimeType: string;
+}
+
+export interface AppResourceInfo {
+  name: string;
+  mimeType: string;
+  enabled: boolean;
+}
+
+export class FootprintMcpTestClient {
+  constructor(
+    private client: Client,
+    private server: FootprintServer,
+  ) {}
+
+  async listTools(): Promise<{
+    tools: Array<Record<string, unknown>>;
+  }> {
+    return (await this.client.listTools()) as {
+      tools: Array<Record<string, unknown>>;
+    };
+  }
+
+  async listResources(): Promise<{
+    resources: Array<Record<string, unknown>>;
+  }> {
+    return (await this.client.listResources()) as {
+      resources: Array<Record<string, unknown>>;
+    };
+  }
+
+  async listResourceTemplates(): Promise<{
+    resourceTemplates: Array<Record<string, unknown>>;
+  }> {
+    return (await this.client.listResourceTemplates()) as {
+      resourceTemplates: Array<Record<string, unknown>>;
+    };
+  }
+
+  async readResource(uri: string): Promise<{
+    contents: Array<{ uri: string; mimeType?: string; text?: string }>;
+  }> {
+    return (await this.client.readResource({ uri })) as {
+      contents: Array<{ uri: string; mimeType?: string; text?: string }>;
+    };
+  }
+
+  async callTool(
+    name: string,
+    args: Record<string, unknown>,
+  ): Promise<{
+    structuredContent?: Record<string, unknown>;
+    content?: Array<Record<string, unknown>>;
+  }> {
+    return (await this.client.callTool({ name, arguments: args })) as {
+      structuredContent?: Record<string, unknown>;
+      content?: Array<Record<string, unknown>>;
+    };
+  }
+
+  async close(): Promise<void> {
+    await Promise.allSettled([this.client.close(), this.server.shutdown()]);
+  }
 }
 
 type RegistryItem = Record<string, unknown>;
@@ -76,6 +141,25 @@ export class FootprintTestHelpers {
     return this.server as unknown as { server: Record<string, unknown> };
   }
 
+  async connectMcpClient(): Promise<FootprintMcpTestClient> {
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await this.server.connect(serverTransport);
+
+    const client = new Client(
+      {
+        name: "footprint-test-client",
+        version: "1.0.0",
+      },
+      {
+        capabilities: {},
+      },
+    );
+    await client.connect(clientTransport);
+
+    return new FootprintMcpTestClient(client, this.server);
+  }
+
   async getTools(): Promise<ToolInfo[]> {
     const tools = Reflect.get(
       this.getServerInternal().server,
@@ -85,7 +169,28 @@ export class FootprintTestHelpers {
     return mapRegistry(tools, (name, tool) => ({
       name,
       description: (tool.description || tool.title) as string,
+      metadata:
+        tool && typeof tool === "object"
+          ? (tool as Record<string, unknown>)
+          : undefined,
     }));
+  }
+
+  async getToolDefinition(name: string): Promise<Record<string, unknown>> {
+    const tools = Reflect.get(
+      this.getServerInternal().server,
+      "_registeredTools",
+    );
+
+    const tool = getFromRegistry(tools, (key, value) =>
+      key === name ? value : null,
+    );
+
+    if (!tool) {
+      throw new Error(`Tool ${name} not found`);
+    }
+
+    return tool;
   }
 
   async getResources(): Promise<ResourceInfo[]> {
@@ -114,11 +219,41 @@ export class FootprintTestHelpers {
     }));
   }
 
-  async readResource(
-    uri: string,
-  ): Promise<{
+  async getAppResources(): Promise<AppResourceInfo[]> {
+    const resources = Reflect.get(
+      this.getServerInternal().server,
+      "_registeredResources",
+    );
+
+    return mapRegistry(resources, (name, resource) => ({
+      name,
+      mimeType:
+        ((resource.metadata as RegistryItem)?.mimeType as string) ||
+        "text/plain",
+      enabled: Boolean(resource.enabled),
+    }));
+  }
+
+  async readResource(uri: string): Promise<{
     contents: Array<{ uri: string; mimeType: string; text: string }>;
   }> {
+    const resources = Reflect.get(
+      this.getServerInternal().server,
+      "_registeredResources",
+    );
+    const directResource = getFromRegistry(resources, (key, value) =>
+      key === uri ? value : null,
+    );
+
+    if (directResource) {
+      const handlerFn = directResource.readCallback || directResource.handler;
+      if (!handlerFn || typeof handlerFn !== "function") {
+        throw new Error("Unknown resource");
+      }
+
+      return handlerFn();
+    }
+
     const templates = Reflect.get(
       this.getServerInternal().server,
       "_registeredResourceTemplates",
