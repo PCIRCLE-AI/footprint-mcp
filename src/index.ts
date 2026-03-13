@@ -28,7 +28,9 @@ const PKG_VERSION: string = (() => {
   for (const rel of ["../../package.json", "../package.json"]) {
     try {
       return (require(rel) as { version: string }).version;
-    } catch {}
+    } catch {
+      // try next candidate path
+    }
   }
   return "0.0.0";
 })();
