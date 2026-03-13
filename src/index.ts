@@ -23,7 +23,7 @@ import type { ServerConfig } from "./types.js";
 import { registerSkillPrompts } from "./prompts/skill-prompt.js";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-const { version: PKG_VERSION } = require("../package.json") as {
+const { version: PKG_VERSION } = require("../../package.json") as {
   version: string;
 };
 
